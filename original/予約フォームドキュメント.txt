@@ -1,0 +1,180 @@
+GPT:https://chatgpt.com/share/68a70ac4-e73c-800e-bdc2-b69f67215441
+
+予約フォーム（LIFF）導入ドキュメント
+
+このドキュメントは、**GitHub へのアップロード → デプロイ → LINE Developers での LIFF 設定 → 公式LINE から起動 → 予約送信（チャットへ投稿）**までを、アップロードいただいたフォーム実装に合わせてまとめたものです。実装の根拠は添付ファイルのコードに基づいています。
+
+1. 仕組みの全体像
+
+静的サイト（HTML/JS/CSS）としてフォームをGitHubに配置し、GitHub Pages / Vercel / Cloudflare Pages等でHTTPS 公開URLを用意。
+
+公開URLをNetlifyでURLをカスタマイズ（しなくてもGithubのpages公開URLを使ってliffに持っていけますが、見栄え的に悪い。）
+
+LINE DevelopersでLIFFアプリを作成し、LIFFエンドポイントURLに上記デプロイURLを登録。
+
+公式LINEのリッチメニュー/ボタン等からLIFF URLを開く。
+
+ユーザーがフォームに入力し、**［予約を行う］**を押すと、liff.sendMessages()で公式LINEのトークに予約内容を投稿します（フォーム実装どおり）。
+
+2. リポジトリ構成（例）
+/index.html
+
+
+3. 必要な設定値（この実装で使っているもの）
+
+LIFF ID
+（991行の部分を変更）
+
+本番用に自社の LIFF IDへ置き換え必須。
+
+カレンダー空き取得用の GAS エンドポイント
+https://script.google.com/macros/s/AKfycbw.../exec?startTime=ISO&endTime=ISO という GET で、営業日や予約済みイベントを返す想定です（レスポンスに "summary": "営業日" 等を含む）。
+（1562行を変更する）
+
+自社のGAS発行URLに差し替えてください。CORS 有効、公開アクセス可、パラメータは startTime,endTime。
+（GAS_Googleカレンダーイベント取得のコードでデプロイされたURLです。）
+
+4. デプロイ手順
+A. GitHub Pages（例）
+
+GitHub に新規リポジトリを作成し、index.html をプッシュ。
+
+Settings → Pages で Branch: main / root を選択し保存。
+
+公開URL（https://<username>.github.io/<repo>/）が発行されます。
+
+B. Vercel / Cloudflare Pages（推奨）
+
+リポジトリを連携し、ビルド設定は不要（静的）。
+
+デプロイ完了後の HTTPS URL を取得。
+
+5. LINE Developers での LIFF 設定
+
+プロバイダー → チャネル（Messaging API） を作成済みであることを確認。
+
+チャネルの LIFF タブ → 追加
+
+エンドポイントURL：上で発行したデプロイURL
+
+サイズ：Tall or Full（推奨）
+
+Scope：chat_message.write（メッセージ送信が必要なため）、必要に応じ profile など
+
+作成後に表示される LIFF ID を、index.html 内の liff.init({ liffId: '...' }) に設定。（991行の部分を変更）
+
+
+6. 公式LINE 側の起動導線
+
+リッチメニュー／メニューのボタン／あいさつメッセージから
+
+上記で作成した LIFF URL を設定。
+
+ユーザーはトーク上の導線からワンタップでフォームを起動できます。
+
+7. フォームの主な挙動（実装どおり）
+
+入力補助：氏名・電話番号などを localStorage に保存して再訪時に復元。
+
+メニュー選択でカレンダー表示：メニュー（所要時間 & 料金）選択で空き状況カレンダーが表示。空きは GAS から取得。
+
+時間計算：
+
+来店回数（例：1回目〈30分〉/2回目以降〈0分〉）
+
+メニュー時間（例：60/90/120分など）
+
+オプション時間（例：各30分）
+を合算して終了時刻が 18:00 を越える枠は自動 ×、過去時刻も × に。
+
+空きロジック（要点）：
+
+GASの戻り値から営業日(summary === "営業日")時間帯を抽出。
+
+営業日の時間内かつ他イベントが重ならない枠のみ ◯。
+
+日曜・営業日外は ×。
+
+送信内容（liff.sendMessages）：
+送信時に以下の形でトークへ投稿されます（テンプレそのまま）。
+
+【予約フォーム】
+お名前：<name>
+電話番号：<phone>
+ご来店回数：<visitCount>
+コース：<selectedMenu>
+メニュー：<selectedSymptom>,<irradiationsCount>
+希望日時：
+ <YYYY年MM月DD日 HH:mm>
+メッセージ：<message>
+
+
+送信成功後は**「当日キャンセルは無いように…」のアラート表示→LIFFを閉じる**挙動です。
+
+
+8. 初期動作チェック（チェックリスト）
+
+ LIFF ID を自社のものに置換。
+
+ GAS URL を自社のデプロイURLに置換し、startTime/endTime でJSONが返るか確認。
+
+ デプロイURLを LIFF エンドポイントに登録
+
+ 公式LINE上から LIFF を起動できる導線（リッチメニュー等）がある。
+
+ メニュー選択→カレンダー表示→日時選択ができる。
+
+ ［予約を行う］ でトークに内容が投稿される。
+
+9. よくある詰まりポイント & 解決策
+
+・LIFFを開くと真っ白／エラー
+
+LIFF ID が未設定/誤り → liff.init({ liffId }) を再確認。
+
+・LIFFエンドポイントURLと実際の公開URLが不一致 → LINE Developers の設定を修正。
+
+選択メニュー＋来店回数＋オプションの合計所要時間が 18:00 を越えていないか。
+
+・送信してもトークに出ない
+
+chat_message.write 権限で LIFF を作成しているか。
+
+liff.sendMessages() の文面テンプレを改変していないか。
+
+・ブラウザ直開きでエラー
+
+LIFFはLINE内WebView想定。動作確認は公式LINE→LIFF起動で行う。
+
+
+10. カスタマイズのヒント
+
+バリデーション強化：電話番号の形式チェック、同意チェック追加など。
+
+設定外出し：config.js を作り、LIFF_ID, GAS_URL, 受付時間、定休日などを一元管理。
+
+多店舗対応：クエリやパスで store_id を受け取り、GAS 側カレンダーを切替。
+
+予約の重複防止：送信前に再度GASへ空き確認APIを叩く（楽観ロック対策）。
+
+カレンダーUI：営業時間・休憩時間・定休日の帯表示、祝日API連携など。
+
+11. セキュリティ・運用注意
+
+GASエンドポイントは乱用対策（レート制限やAPIキー検討）。
+
+PⅡの扱い：氏名・電話は必要最低限の保存。localStorageの扱いに注意。
+
+ログ：送信失敗時のエラーを console.error から**可視化（Sentry等）**すると保守が楽。
+
+12. 運用開始までの最短 ToDo
+
+リポジトリ作成＆index.html（予約フォーム）を配置
+
+Netlifyなどでデプロイ → 公開URL 取得
+
+LINE Developers → 新規LIFF 作成・LIFF ID を index.html に設定
+
+公式LINEのリッチメニューに LIFF URL を紐づけ
+
+実機（LINEアプリ）で入力→送信まで確認（トークに予約内容が出るか）

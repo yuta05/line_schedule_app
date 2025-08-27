@@ -1,0 +1,22 @@
+{
+  "tenantId": "sample-store",
+  "displayName": "サンプル店舗",
+  "line": {
+    "liffId": {
+      "dev": "",
+      "prod": ""
+    },
+    "channelAccessToken": {
+      "dev": "",
+      "prod": ""
+    }
+  },
+  "gas": {
+    "reservation": { "scriptId": { "dev": "", "prod": "" }, "url": { "dev": "", "prod": "" } },
+    "availability": { "scriptId": { "dev": "", "prod": "" }, "url": { "dev": "", "prod": "" } },
+    "reminder": { "scriptId": { "dev": "", "prod": "" }, "url": { "dev": "", "prod": "" } }
+  },
+  "calendarId": { "dev": "", "prod": "" }
+}
+
+
