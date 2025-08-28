@@ -59,14 +59,9 @@ jobs:
       - name: Install clasp
         run: npm install -g @google/clasp
         
-      - name: Setup Google credentials
+      - name: Setup Google credentials and Deploy
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-        run: |
-          echo "$GOOGLE_CREDENTIALS" > ~/.clasprc.json
-          
-      - name: Deploy GAS
-        env:
           TENANT_ID: ${{ steps.params.outputs.tenantId }}
           APP: ${{ steps.params.outputs.app }}
           ENVIRONMENT: ${{ steps.params.outputs.environment }}
@@ -107,22 +102,128 @@ jobs:
           
           echo "Using Script ID: $SCRIPT_ID"
           
+          # Install jq for JSON processing
+          sudo apt-get update && sudo apt-get install -y jq
+          
+          # Extract service account credentials
+          echo "$GOOGLE_CREDENTIALS" > /tmp/service-account.json
+          CLIENT_EMAIL=$(jq -r '.client_email' /tmp/service-account.json)
+          PRIVATE_KEY=$(jq -r '.private_key' /tmp/service-account.json)
+          
+          echo "Service account email: $CLIENT_EMAIL"
+          
+          # Create JWT token for Google API authentication
+          NODE_SCRIPT=$(cat << 'EOF'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          
+          const serviceAccount = JSON.parse(fs.readFileSync('/tmp/service-account.json', 'utf8'));
+          const now = Math.floor(Date.now() / 1000);
+          
+          const header = { alg: 'RS256', typ: 'JWT' };
+          const payload = {
+            iss: serviceAccount.client_email,
+            scope: 'https://www.googleapis.com/auth/script.projects',
+            aud: 'https://oauth2.googleapis.com/token',
+            exp: now + 3600,
+            iat: now
+          };
+          
+          const base64url = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+          const toSign = base64url(header) + '.' + base64url(payload);
+          
+          const sign = crypto.createSign('RSA-SHA256');
+          sign.update(toSign);
+          const signature = sign.sign(serviceAccount.private_key, 'base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+          
+          console.log(toSign + '.' + signature);
+          EOF
+          )
+          
+          JWT=$(node -e "$NODE_SCRIPT")
+          
+          # Get access token
+          ACCESS_TOKEN_RESPONSE=$(curl -s -X POST https://oauth2.googleapis.com/token \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$JWT")
+          
+          ACCESS_TOKEN=$(echo "$ACCESS_TOKEN_RESPONSE" | jq -r '.access_token')
+          
+          if [ "$ACCESS_TOKEN" = "null" ] || [ -z "$ACCESS_TOKEN" ]; then
+            echo "Failed to get access token:"
+            echo "$ACCESS_TOKEN_RESPONSE"
+            exit 1
+          fi
+          
+          echo "Successfully obtained access token"
+          
           # Navigate to appropriate GAS app directory
           cd "apps/gas-${APP}"
           
-          # Create .clasp.json with the script ID
-          echo "{\"scriptId\":\"$SCRIPT_ID\"}" > .clasp.json
-          
-          # Deploy using clasp
-          clasp push
-          DEPLOY_OUTPUT=$(clasp deploy --description "Auto-deploy $(date)")
-          echo "Deploy output: $DEPLOY_OUTPUT"
-          
-          # Extract Web App URL from deploy output if available
-          if echo "$DEPLOY_OUTPUT" | grep -q "https://"; then
-            WEB_APP_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^[:space:]]*' | head -1)
-            echo "Web App URL: $WEB_APP_URL"
-            # TODO: Update environment variables with the Web App URL
+          # Read the source code
+          if [ ! -f "src/Code.ts" ]; then
+            echo "Error: src/Code.ts not found"
+            exit 1
           fi
           
-          echo "Deployment completed successfully!"
+          SOURCE_CODE=$(cat src/Code.ts)
+          
+          # Update the GAS project using Google Apps Script API
+          UPDATE_RESPONSE=$(curl -s -X PUT \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"files\": [
+                {
+                  \"name\": \"Code\",
+                  \"type\": \"SERVER_JS\",
+                  \"source\": $(echo "$SOURCE_CODE" | jq -R -s .)
+                }
+              ]
+            }")
+          
+          echo "Update response: $UPDATE_RESPONSE"
+          
+          # Create a new version
+          VERSION_RESPONSE=$(curl -s -X POST \
+            "https://script.googleapis.com/v1/projects/$SCRIPT_ID/versions" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"description\": \"Auto-deploy $(date)\"}")
+          
+          echo "Version response: $VERSION_RESPONSE"
+          
+          VERSION_NUMBER=$(echo "$VERSION_RESPONSE" | jq -r '.versionNumber')
+          
+          if [ "$VERSION_NUMBER" != "null" ] && [ -n "$VERSION_NUMBER" ]; then
+            echo "Created version: $VERSION_NUMBER"
+            
+            # Create deployment
+            DEPLOY_RESPONSE=$(curl -s -X POST \
+              "https://script.googleapis.com/v1/projects/$SCRIPT_ID/deployments" \
+              -H "Authorization: Bearer $ACCESS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"deploymentConfig\": {
+                  \"versionNumber\": $VERSION_NUMBER,
+                  \"manifestFileName\": \"appsscript\",
+                  \"description\": \"Auto-deploy $(date)\"
+                }
+              }")
+            
+            echo "Deploy response: $DEPLOY_RESPONSE"
+            
+            # Extract Web App URL if available
+            WEB_APP_URL=$(echo "$DEPLOY_RESPONSE" | jq -r '.entryPoints[]? | select(.entryPointType == "WEB_APP") | .webApp.url' 2>/dev/null || echo "")
+            
+            if [ -n "$WEB_APP_URL" ] && [ "$WEB_APP_URL" != "null" ]; then
+              echo "Web App URL: $WEB_APP_URL"
+              # TODO: Update environment variables with the Web App URL
+            fi
+            
+            echo "Deployment completed successfully!"
+          else
+            echo "Failed to create version"
+            exit 1
+          fi
