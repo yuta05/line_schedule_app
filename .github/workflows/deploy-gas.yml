@@ -110,8 +110,19 @@ jobs:
           # Navigate to appropriate GAS app directory
           cd "apps/gas-${APP}"
           
+          # Create .clasp.json with the script ID
+          echo "{\"scriptId\":\"$SCRIPT_ID\"}" > .clasp.json
+          
           # Deploy using clasp
-          clasp push --scriptId "$SCRIPT_ID"
-          clasp deploy --scriptId "$SCRIPT_ID" --description "Auto-deploy $(date)"
+          clasp push
+          DEPLOY_OUTPUT=$(clasp deploy --description "Auto-deploy $(date)")
+          echo "Deploy output: $DEPLOY_OUTPUT"
+          
+          # Extract Web App URL from deploy output if available
+          if echo "$DEPLOY_OUTPUT" | grep -q "https://"; then
+            WEB_APP_URL=$(echo "$DEPLOY_OUTPUT" | grep -o 'https://[^[:space:]]*' | head -1)
+            echo "Web App URL: $WEB_APP_URL"
+            # TODO: Update environment variables with the Web App URL
+          fi
           
           echo "Deployment completed successfully!"
