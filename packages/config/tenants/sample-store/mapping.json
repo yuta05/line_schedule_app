@@ -12,9 +12,9 @@
     }
   },
   "gas": {
-    "reservation": { "scriptId": { "dev": "", "prod": "" }, "url": { "dev": "", "prod": "" } },
-    "availability": { "scriptId": { "dev": "", "prod": "" }, "url": { "dev": "", "prod": "" } },
-    "reminder": { "scriptId": { "dev": "", "prod": "" }, "url": { "dev": "", "prod": "" } }
+    "reservation": { "scriptId": { "dev": "AKfycbzqw64JHqpNMAyyflMIiz2Z53y9g9NPIiXkAKKlC0JQgeFxuH36Z5CIYcVR_7Vlv234og", "prod": "" }, "url": { "dev": "", "prod": "" } },
+    "availability": { "scriptId": { "dev": "AKfycbymYa1Zv4y3U7A0SBMXVxjMEuQ_LxOBKbGK85XPjUOJNELEXmWII3jL2SsZ5oEHm_x18w", "prod": "" }, "url": { "dev": "", "prod": "" } },
+    "reminder": { "scriptId": { "dev": "AKfycbzehq9rhANUFjajB7piZ40TrJRv_nskkV8cewwonTtsk0rUmwAPY8XjWdy312VErXp4", "prod": "" }, "url": { "dev": "", "prod": "" } }
   },
   "calendarId": { "dev": "", "prod": "" }
 }

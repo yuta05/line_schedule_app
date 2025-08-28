@@ -45,6 +45,26 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const env = (search.get('env') || 'both').toLowerCase(); // 'dev' | 'prod' | 'both'
     const prefix = tenantId.toUpperCase().replace(/-/g, '_');
     const envs: Array<'DEV' | 'PROD'> = env === 'both' ? ['DEV', 'PROD'] : [env.toUpperCase() as 'DEV' | 'PROD'];
+    
+    // Debug: Check environment variables
+    const email = process.env.GOOGLE_CLIENT_EMAIL;
+    const pk = process.env.GOOGLE_PRIVATE_KEY;
+    
+    if (!email || !pk) {
+      return NextResponse.json({ 
+        error: 'missing google service account env',
+        debug: {
+          hasEmail: !!email,
+          hasPrivateKey: !!pk,
+          emailLength: email?.length || 0,
+          pkLength: pk?.length || 0,
+          allEnvKeys: Object.keys(process.env).filter(k => k.includes('GOOGLE')),
+          tenantId,
+          prefix
+        }
+      }, { status: 500 });
+    }
+    
     const token = await getAccessToken();
     const apps = ['AVAILABILITY', 'RESERVATION', 'REMINDER'] as const;
     const out: any[] = [];
@@ -59,7 +79,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
     return NextResponse.json({ tenantId, fetchedAt: new Date().toISOString(), items: out });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'error' }, { status: 500 });
+    return NextResponse.json({ 
+      error: e?.message || 'error',
+      debug: {
+        hasGoogleEmail: !!process.env.GOOGLE_CLIENT_EMAIL,
+        hasGoogleKey: !!process.env.GOOGLE_PRIVATE_KEY,
+        allGoogleEnv: Object.keys(process.env).filter(k => k.includes('GOOGLE'))
+      }
+    }, { status: 500 });
   }
 }
 
