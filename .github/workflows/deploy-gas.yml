@@ -168,6 +168,14 @@ jobs:
           
           SOURCE_CODE=$(cat src/Code.ts)
           
+          # Read the manifest file
+          if [ ! -f "appsscript.json" ]; then
+            echo "Error: appsscript.json not found"
+            exit 1
+          fi
+          
+          MANIFEST_CONTENT=$(cat appsscript.json)
+          
           # Update the GAS project using Google Apps Script API
           UPDATE_RESPONSE=$(curl -s -X PUT \
             "https://script.googleapis.com/v1/projects/$SCRIPT_ID/content" \
@@ -175,6 +183,11 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{
               \"files\": [
+                {
+                  \"name\": \"appsscript\",
+                  \"type\": \"JSON\",
+                  \"source\": $(echo "$MANIFEST_CONTENT" | jq -R -s .)
+                },
                 {
                   \"name\": \"Code\",
                   \"type\": \"SERVER_JS\",
