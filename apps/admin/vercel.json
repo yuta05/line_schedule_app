@@ -3,8 +3,5 @@
     "app/api/**/*.ts": {
       "includeFiles": "../../packages/config/**/*"
     }
-  },
-  "outputFileTracing": true,
-  "buildCommand": "npm run build",
-  "installCommand": "npm install"
+  }
 }
