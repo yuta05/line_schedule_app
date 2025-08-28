@@ -1,7 +1,8 @@
 {
   "functions": {
     "app/api/**/*.ts": {
-      "includeFiles": "../../packages/config/**"
+      "includeFiles": "../../packages/**/*"
     }
-  }
+  },
+  "outputFileTracing": true
 }
