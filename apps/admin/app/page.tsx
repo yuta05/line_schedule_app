@@ -13,6 +13,7 @@ async function triggerGAS(app: 'availability' | 'reservation' | 'reminder', envi
 
 export default function Page() {
   const [log, setLog] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
   const [tenantId, setTenantId] = useState<string>('sample-store');
   const [tenants, setTenants] = useState<{ tenantId: string; displayName: string }[]>([]);
@@ -26,51 +27,95 @@ export default function Page() {
         const res = await fetch('/api/tenants');
         const data = await res.json();
         setTenants(data.tenants || []);
-      } catch {}
+      } catch (error) {
+        console.error('Failed to load tenants:', error);
+        setLog(prev => prev + '\nERR: Failed to load tenants');
+      }
     })();
   }, []);
 
   const refreshDetail = async () => {
-    if (!tenantId) return;
+    if (!tenantId || loading) return;
     try {
       const res = await fetch(`/api/tenants/${tenantId}`);
       const data = await res.json();
       setDetail(data);
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load tenant detail:', error);
+      setDetail({ error: 'Failed to load' });
+    }
   };
   const refreshStatus = async () => {
-    if (!tenantId) return;
+    if (!tenantId || loading) return;
     try {
       const res2 = await fetch(`/api/tenants/${tenantId}/status`);
       const data2 = await res2.json();
       setStatus(data2);
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load status:', error);
+      setStatus({ error: 'Failed to load' });
+    }
   };
   const refreshDeploys = async () => {
-    if (!tenantId) return;
+    if (!tenantId || loading) return;
     try {
       const res3 = await fetch(`/api/tenants/${tenantId}/deploys`);
       const data3 = await res3.json();
       setDeploys(data3);
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load deploys:', error);
+      setDeploys({ error: 'Failed to load' });
+    }
   };
   const refreshGasDeploys = async () => {
-    if (!tenantId) return;
+    if (!tenantId || loading) return;
     try {
       const res4 = await fetch(`/api/tenants/${tenantId}/gas/deploys`);
       const data4 = await res4.json();
       setGasDeploys(data4);
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load gas deploys:', error);
+      setGasDeploys({ error: 'Failed to load' });
+    }
   };
   useEffect(() => {
-    (async () => {
-      await refreshDetail();
-      await refreshStatus();
-      await refreshDeploys();
-      await refreshGasDeploys();
-    })();
+    if (!tenantId) return;
+    
+    // デバウンス処理: テナント変更時の連続実行を防ぐ
+    const timeoutId = setTimeout(async () => {
+      setLoading(true);
+      setLog(prev => prev + `\n読み込み開始: ${tenantId}`);
+      
+      try {
+        // 順次実行でリソース負荷を軽減
+        await refreshDetail();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        await refreshStatus();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        await refreshDeploys();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        await refreshGasDeploys();
+        
+        setLog(prev => prev + `\n読み込み完了: ${tenantId}`);
+      } catch (error) {
+        console.error('Failed to load tenant data:', error);
+        setLog(prev => prev + `\nERR: Failed to load ${tenantId}`);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [tenantId]);
   const run = async (app: 'availability' | 'reservation' | 'reminder', env: 'dev' | 'prod') => {
+    if (loading) {
+      setLog(prev => prev + `\nSKIP: ${app}(${env}) - 読み込み中`);
+      return;
+    }
+    
     setLog(prev => prev + `\nDispatching ${app}(${env})...`);
     try {
       const r = await triggerGAS(app, env, tenantId);
@@ -83,23 +128,34 @@ export default function Page() {
   return (
     <main style={{ padding: 16 }}>
       <h1>管理者ページ（デプロイ）</h1>
+      
+      {loading && (
+        <div style={{ padding: 8, background: '#fff3cd', border: '1px solid #ffeaa7', marginBottom: 16 }}>
+          読み込み中... リソース負荷軽減のため順次実行しています
+        </div>
+      )}
+      
       <section>
         <h2>GAS デプロイ</h2>
         <div style={{ marginBottom: 8 }}>
           <label>Tenant: </label>
-          <select value={tenantId} onChange={e => setTenantId(e.target.value)}>
+          <select 
+            value={tenantId} 
+            onChange={e => setTenantId(e.target.value)}
+            disabled={loading}
+          >
             {tenants.map(t => (
               <option key={t.tenantId} value={t.tenantId}>{t.displayName} ({t.tenantId})</option>
             ))}
           </select>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => run('availability', 'dev')}>availability (dev)</button>
-          <button onClick={() => run('availability', 'prod')}>availability (prod)</button>
-          <button onClick={() => run('reservation', 'dev')}>reservation (dev)</button>
-          <button onClick={() => run('reservation', 'prod')}>reservation (prod)</button>
-          <button onClick={() => run('reminder', 'dev')}>reminder (dev)</button>
-          <button onClick={() => run('reminder', 'prod')}>reminder (prod)</button>
+          <button onClick={() => run('availability', 'dev')} disabled={loading}>availability (dev)</button>
+          <button onClick={() => run('availability', 'prod')} disabled={loading}>availability (prod)</button>
+          <button onClick={() => run('reservation', 'dev')} disabled={loading}>reservation (dev)</button>
+          <button onClick={() => run('reservation', 'prod')} disabled={loading}>reservation (prod)</button>
+          <button onClick={() => run('reminder', 'dev')} disabled={loading}>reminder (dev)</button>
+          <button onClick={() => run('reminder', 'prod')} disabled={loading}>reminder (prod)</button>
         </div>
       </section>
       <section style={{ marginTop: 24 }}>
@@ -112,7 +168,29 @@ export default function Page() {
       </section>
       <section style={{ marginTop: 24 }}>
         <h2>テナント詳細</h2>
-        <TenantDetailPanel detail={detail} status={status} deploys={deploys} gasDeploys={gasDeploys} onRefresh={async () => { await refreshStatus(); await refreshDeploys(); await refreshGasDeploys(); }} />
+        <TenantDetailPanel 
+          detail={detail} 
+          status={status} 
+          deploys={deploys} 
+          gasDeploys={gasDeploys} 
+          onRefresh={async () => { 
+            if (loading) return;
+            setLoading(true);
+            setLog(prev => prev + '\n手動更新開始...');
+            try {
+              await refreshStatus(); 
+              await new Promise(resolve => setTimeout(resolve, 200));
+              await refreshDeploys(); 
+              await new Promise(resolve => setTimeout(resolve, 200));
+              await refreshGasDeploys();
+              setLog(prev => prev + '\n手動更新完了');
+            } catch (error) {
+              setLog(prev => prev + '\nERR: 手動更新失敗');
+            } finally {
+              setLoading(false);
+            }
+          }} 
+        />
       </section>
       <pre style={{ marginTop: 16, padding: 12, background: '#f7f7f7', minHeight: 120 }}>{log}</pre>
     </main>
