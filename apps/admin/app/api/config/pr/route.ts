@@ -28,8 +28,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'bad request' }, { status: 400 });
     }
 
-    const token = process.env.GITHUB_TOKEN_FOR_DISPATCH;
-    const repo = process.env.GITHUB_REPOSITORY || process.env.NEXT_PUBLIC_GITHUB_REPOSITORY;
+    const token = process.env.GH_TOKEN_FOR_DISPATCH;
+    const repo = process.env.GH_REPOSITORY || process.env.NEXT_PUBLIC_GITHUB_REPOSITORY;
     if (!token || !repo) return NextResponse.json({ error: 'missing server env' }, { status: 500 });
 
     const [owner, repoName] = repo.split('/');
