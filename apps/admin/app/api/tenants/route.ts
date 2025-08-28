@@ -5,7 +5,23 @@ import path from 'path';
 export async function GET() {
   try {
     const root = process.cwd();
-    const tenantsDir = path.join(root, 'packages', 'config', 'tenants');
+    console.log('Root directory:', root);
+    
+    // Vercel serverless functions run from apps/admin, so we need to go up to access packages
+    const tenantsDir = path.join(root, '..', '..', 'packages', 'config', 'tenants');
+    
+    try {
+      await fs.access(tenantsDir);
+      console.log('Found tenants directory at:', tenantsDir);
+    } catch (error) {
+      console.log('Tenants directory not found at:', tenantsDir);
+      return NextResponse.json({ 
+        error: `tenants directory not found at ${tenantsDir}`,
+        root,
+        tried: tenantsDir
+      }, { status: 500 });
+    }
+    
     const entries = await fs.readdir(tenantsDir, { withFileTypes: true });
     const tenants: any[] = [];
     for (const ent of entries) {

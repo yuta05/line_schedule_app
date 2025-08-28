@@ -1,8 +1,10 @@
 {
   "functions": {
     "app/api/**/*.ts": {
-      "includeFiles": "../../packages/**/*"
+      "includeFiles": "../../packages/config/**/*"
     }
   },
-  "outputFileTracing": true
+  "outputFileTracing": true,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install"
 }
