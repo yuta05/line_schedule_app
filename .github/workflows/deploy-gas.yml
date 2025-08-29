@@ -161,12 +161,12 @@ jobs:
           cd "apps/gas-${APP}"
           
           # Read the source code
-          if [ ! -f "src/Code.ts" ]; then
-            echo "Error: src/Code.ts not found"
+          if [ ! -f "src/Code.gs" ]; then
+            echo "Error: src/Code.gs not found"
             exit 1
           fi
           
-          SOURCE_CODE=$(cat src/Code.ts)
+          SOURCE_CODE=$(cat src/Code.gs)
           
           # Read the manifest file
           if [ ! -f "appsscript.json" ]; then
