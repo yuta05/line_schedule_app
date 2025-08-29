@@ -1,12 +1,12 @@
 // Availability GAS (TS minimal)
 
-function doGet(e: GoogleAppsScript.Events.DoGet): GoogleAppsScript.Content.TextOutput {
+function doGet(e) {
   try {
     const calendarId = PropertiesService.getScriptProperties().getProperty('CALENDAR_ID') || '';
     if (!calendarId) return errorJson('Missing CALENDAR_ID');
 
     if (!e || !e.parameter) return errorJson('No parameters provided.');
-    const { startTime, endTime } = e.parameter as { startTime?: string; endTime?: string };
+    const { startTime, endTime } = e.parameter;
     if (!startTime || !endTime) return errorJson('Missing startTime or endTime parameter.');
     if (!isISO(startTime) || !isISO(endTime)) return errorJson('Invalid date format.');
 
@@ -33,12 +33,12 @@ function doGet(e: GoogleAppsScript.Events.DoGet): GoogleAppsScript.Content.TextO
 }
 
 // Admin: set Script Properties via POST { adminToken, properties }
-function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+function doPost(e) {
   try {
     const ADMIN_TOKEN = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN') || '';
     const body = e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
     if (!body || body.adminToken !== ADMIN_TOKEN) return errorJson('unauthorized');
-    const props = body.properties as Record<string, string> | undefined;
+    const props = body.properties;
     if (!props) return errorJson('missing properties');
     const store = PropertiesService.getScriptProperties();
     store.setProperties(props, true);
@@ -48,11 +48,11 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
   }
 }
 
-function isISO(s: string): boolean {
+function isISO(s) {
   return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(s);
 }
 
-function getTimeZone(defaultTz: string): string {
+function getTimeZone(defaultTz) {
   try {
     return Session.getScriptTimeZone() || defaultTz;
   } catch {
@@ -60,15 +60,15 @@ function getTimeZone(defaultTz: string): string {
   }
 }
 
-function toZone(iso: string, tz: string): Date {
+function toZone(iso, tz) {
   return new Date(new Date(iso).toLocaleString('en-US', { timeZone: tz }));
 }
 
-function json(obj: unknown): GoogleAppsScript.Content.TextOutput {
+function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function errorJson(message: string): GoogleAppsScript.Content.TextOutput {
+function errorJson(message) {
   return json({ error: message });
 }
 

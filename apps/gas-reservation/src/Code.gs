@@ -1,6 +1,6 @@
 // Reservation GAS minimal webhook (reply stub)
 
-function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+function doPost(e) {
   const CHANNEL_ACCESS_TOKEN = PropertiesService.getScriptProperties().getProperty('CHANNEL_ACCESS_TOKEN') || '';
   const CALENDAR_ID = PropertiesService.getScriptProperties().getProperty('CALENDAR_ID') || '';
   if (!CHANNEL_ACCESS_TOKEN || !CALENDAR_ID) return json({ ok: false, error: 'Missing properties' });
@@ -10,9 +10,9 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
     if (!body || !body.events || !Array.isArray(body.events)) return json({ ok: false });
 
     // 最小: 「予約確認」→固定返信（後で本実装に差し替え）
-    body.events.forEach((ev: any) => {
+    body.events.forEach((ev) => {
       if (ev.type === 'message' && ev.message?.type === 'text') {
-        const text: string = ev.message.text || '';
+        const text = ev.message.text || '';
         if (text.includes('予約確認')) {
           pushMessage(CHANNEL_ACCESS_TOKEN, ev.source.userId, '現在の予約はありません（デモ）');
         }
@@ -25,12 +25,12 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
 }
 
 // Admin endpoint to set Script Properties
-function setProperties(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+function setProperties(e) {
   try {
     const ADMIN_TOKEN = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN') || '';
     const body = e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
     if (!body || body.adminToken !== ADMIN_TOKEN) return json({ ok: false, error: 'unauthorized' });
-    const props = body.properties as Record<string, string> | undefined;
+    const props = body.properties;
     if (!props) return json({ ok: false, error: 'missing properties' });
     PropertiesService.getScriptProperties().setProperties(props, true);
     return json({ ok: true });
@@ -39,13 +39,13 @@ function setProperties(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Cont
   }
 }
 
-function pushMessage(token: string, userId: string, text: string) {
+function pushMessage(token, userId, text) {
   const url = 'https://api.line.me/v2/bot/message/push';
   const payload = {
     to: userId,
     messages: [{ type: 'text', text }]
   };
-  const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+  const params = {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
@@ -55,7 +55,7 @@ function pushMessage(token: string, userId: string, text: string) {
   UrlFetchApp.fetch(url, params);
 }
 
-function json(obj: unknown): GoogleAppsScript.Content.TextOutput {
+function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 

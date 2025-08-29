@@ -23,12 +23,12 @@ function sendReminderMessages() {
   });
 }
 
-function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.TextOutput {
+function doPost(e) {
   try {
     const ADMIN_TOKEN = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN') || '';
     const body = e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
     if (!body || body.adminToken !== ADMIN_TOKEN) return json({ ok: false, error: 'unauthorized' });
-    const props = body.properties as Record<string, string> | undefined;
+    const props = body.properties;
     if (!props) return json({ ok: false, error: 'missing properties' });
     PropertiesService.getScriptProperties().setProperties(props, true);
     return json({ ok: true });
@@ -37,14 +37,14 @@ function doPost(e: GoogleAppsScript.Events.DoPost): GoogleAppsScript.Content.Tex
   }
 }
 
-function json(obj: unknown): GoogleAppsScript.Content.TextOutput {
+function json(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
-function pushMessage(token: string, userId: string, text: string) {
+function pushMessage(token, userId, text) {
   const url = 'https://api.line.me/v2/bot/message/push';
   const payload = { to: userId, messages: [{ type: 'text', text }] };
-  const params: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
+  const params = {
     method: 'post',
     contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + token },
