@@ -1,753 +1,746 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import {
-  Box,
-  Paper,
-  Typography,
-  TextField,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Checkbox,
-  FormGroup,
-  Avatar,
-  Divider,
-  Alert,
-  CircularProgress,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
-} from '@mui/material';
-import {
-  AccessTime,
-  Phone,
-  Person,
-  Message,
-  Info as InfoIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
-import type { Form, MenuItem, VisitOption, CustomerInfo, MenuSelections } from '../types/form';
+import { useParams, useSearchParams } from 'react-router-dom';
+import WeeklyCalendar from '../components/Calendar/WeeklyCalendar';
+import type { Form } from '../types/form';
 import { LocalStorageService } from '../services/localStorageService';
-import { GoogleCalendarService } from '../services/googleCalendarService';
-import CalendarSelector from '../components/Calendar/CalendarSelector';
 
 const CustomerForm: React.FC = () => {
   const { formId } = useParams<{ formId: string }>();
+  const [searchParams] = useSearchParams();
+  const isPreviewMode = searchParams.get('preview') === 'true';
+
   const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [imagePopup, setImagePopup] = useState<{
-    open: boolean;
-    imageUrl?: string;
-    imageName?: string;
-    menuName?: string;
-  }>({ open: false });
-  const [selections, setSelections] = useState<MenuSelections>({
-    visit_option: null,
-    gender: undefined,
-    selected_menus: [],
-    selected_options: [],
-    customer_info: {
-      name: '',
-      phone: '',
-      message: ''
-    },
-    selected_datetime: null
-  });
+
+  // フォーム状態
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [visitCount, setVisitCount] = useState('');
+  const [selectedGender, setSelectedGender] = useState('');
+  const [selectedMenu, setSelectedMenu] = useState('');
+  const [selectedSymptom, setSelectedSymptom] = useState<string[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  const [selectedDateTime, setSelectedDateTime] = useState<Date | null>(null);
+  const [message, setMessage] = useState('');
+
+  // 価格計算用
+  const [menuPrice, setMenuPrice] = useState(0);
+  const [optionsPrice, setOptionsPrice] = useState(0);
+
+  // 時間計算用
+  const [selectedMenuTime, setSelectedMenuTime] = useState(0);
+  const [selectedOptionsTime, setSelectedOptionsTime] = useState(0);
+  const [selectedVisitTime, setSelectedVisitTime] = useState(0);
+
+  // UI状態
+  const [activeMenuCategory, setActiveMenuCategory] = useState('');
+  const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
-    if (formId) {
-      const foundForm = LocalStorageService.getForm(formId);
-      if (foundForm) {
-        setForm(foundForm);
+    const loadForm = () => {
+      if (!formId) return;
+
+      const loadedForm = LocalStorageService.getForm(formId);
+      if (loadedForm) {
+        setForm(loadedForm);
+        console.log('CustomerForm loaded:', {
+          formId,
+          isPreviewMode,
+          hasDraft: !!loadedForm.draft_config,
+          draftStatus: loadedForm.draft_status,
+          configFormName: loadedForm.config?.basic_info?.form_name,
+          draftFormName: loadedForm.draft_config?.basic_info?.form_name
+        });
       }
       setLoading(false);
-    }
-  }, [formId]);
-
-  const calculateTotal = () => {
-    const visitFee = selections.visit_option?.price || 0;
-    const menuPrice = selections.selected_menus.reduce((sum, menu) => sum + menu.price, 0);
-    const optionsPrice = selections.selected_options.reduce((sum, option) => sum + option.price, 0);
-    const totalDuration = selections.selected_menus.reduce((sum, menu) => sum + menu.duration, 0) +
-                         selections.selected_options.reduce((sum, option) => sum + option.duration, 0);
-    
-    return {
-      visit_fee: visitFee,
-      menu_price: menuPrice,
-      options_price: optionsPrice,
-      total_price: visitFee + menuPrice + optionsPrice,
-      duration_minutes: totalDuration
-    };
-  };
-
-  const handleVisitOptionChange = (option: VisitOption) => {
-    setSelections(prev => ({ ...prev, visit_option: option }));
-  };
-
-  const handleMenuToggle = (menu: MenuItem) => {
-    setSelections(prev => {
-      const isSelected = prev.selected_menus.some(m => m.id === menu.id);
-      if (isSelected) {
-        return {
-          ...prev,
-          selected_menus: prev.selected_menus.filter(m => m.id !== menu.id)
-        };
-      } else {
-        return {
-          ...prev,
-          selected_menus: [...prev.selected_menus, menu]
-        };
-      }
-    });
-  };
-
-  const handleOptionToggle = (option: MenuItem) => {
-    setSelections(prev => {
-      const isSelected = prev.selected_options.some(o => o.id === option.id);
-      if (isSelected) {
-        return {
-          ...prev,
-          selected_options: prev.selected_options.filter(o => o.id !== option.id)
-        };
-      } else {
-        return {
-          ...prev,
-          selected_options: [...prev.selected_options, option]
-        };
-      }
-    });
-  };
-
-  const handleImageClick = (imageUrl: string, imageName: string, menuName: string) => {
-    setImagePopup({
-      open: true,
-      imageUrl,
-      imageName,
-      menuName
-    });
-  };
-
-  const handleCloseImagePopup = () => {
-    setImagePopup({ open: false });
-  };
-
-  const handleCustomerInfoChange = (field: keyof CustomerInfo, value: string) => {
-    setSelections(prev => ({
-      ...prev,
-      customer_info: {
-        ...prev.customer_info,
-        [field]: value
-      }
-    }));
-  };
-
-  const handleSubmit = async () => {
-    if (!selections.selected_datetime || !selections.visit_option) {
-      alert('必要な情報が入力されていません');
-      return;
-    }
-
-    const reservationData = {
-      date: selections.selected_datetime.toISOString().split('T')[0],
-      time: selections.selected_datetime.toTimeString().split(' ')[0].slice(0, 5),
-      duration: total.duration_minutes,
-      customerName: selections.customer_info.name,
-      customerPhone: selections.customer_info.phone,
-      menuNames: [
-        ...selections.selected_menus.map(m => m.name),
-        ...selections.selected_options.map(o => o.name)
-      ],
-      storeId: form?.store_id || 'store_0001',
-      formId: form?.id || formId || ''
     };
 
-    try {
-      const result = await GoogleCalendarService.createReservation(reservationData);
-      if (result.success) {
-        alert(`予約を受け付けました！\n予約ID: ${result.eventId || 'DEMO_' + Date.now()}`);
-      } else {
-        alert(`予約の処理中にエラーが発生しました: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('Reservation error:', error);
-      alert('予約を受け付けました！（デモ版）');
-    }
+    loadForm();
+  }, [formId, isPreviewMode]);
+
+  const getActiveConfig = () => {
+    if (!form) return null;
+    return isPreviewMode && form.draft_config ? form.draft_config : form.config;
   };
 
-  const handleDateTimeSelect = (date: string, time: string) => {
-    const datetime = new Date(`${date}T${time}:00`);
-    setSelections(prev => ({ ...prev, selected_datetime: datetime }));
-  };
+  const activeConfig = getActiveConfig();
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontFamily: "'Poppins', sans-serif"
+      }}>
+        読み込み中...
+      </div>
     );
   }
 
-  if (!form) {
+  if (!form || !activeConfig) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h6">フォームが見つかりません</Typography>
-      </Box>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        fontFamily: "'Poppins', sans-serif"
+      }}>
+        フォームが見つかりません
+      </div>
     );
   }
 
-  const total = calculateTotal();
+  const handleGenderSelect = (gender: string) => {
+    setSelectedGender(gender);
+  };
+
+  const handleVisitSelect = (visit: string) => {
+    setVisitCount(visit);
+    // 来店オプションから時間を取得
+    const visitOption = activeConfig.visit_options.find((opt: any) => opt.label === visit);
+    setSelectedVisitTime(visitOption?.duration || 0);
+  };
+
+  const handleMenuCategorySelect = (categoryName: string) => {
+    setActiveMenuCategory(categoryName);
+    setSelectedMenu(categoryName);
+    // メニューとオプションをリセット
+    setSelectedSymptom([]);
+    setSelectedOptions([]);
+    setMenuPrice(0);
+    setOptionsPrice(0);
+    setSelectedMenuTime(0);
+    setSelectedOptionsTime(0);
+    setSelectedDateTime(null);
+  };
+
+  const handleMenuItemSelect = (menuItem: any) => {
+    setSelectedSymptom([menuItem.name]);
+    setMenuPrice(menuItem.price || 0);
+    setSelectedMenuTime(menuItem.duration || 0);
+    setShowCalendar(true);
+  };
+
+  const handleOptionSelect = (option: any, isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedOptions([...selectedOptions, option.name]);
+      setOptionsPrice(optionsPrice + (option.price || 0));
+      setSelectedOptionsTime(selectedOptionsTime + (option.duration || 0));
+    } else {
+      setSelectedOptions(selectedOptions.filter(opt => opt !== option.name));
+      setOptionsPrice(optionsPrice - (option.price || 0));
+      setSelectedOptionsTime(selectedOptionsTime - (option.duration || 0));
+    }
+  };
+
+  const handleSubmit = () => {
+    // バリデーション
+    if (!name.trim()) {
+      alert('お名前を入力してください。');
+      return;
+    }
+    if (!phone.trim()) {
+      alert('電話番号を入力してください。');
+      return;
+    }
+    if (!visitCount) {
+      alert('ご来店回数を選択してください。');
+      return;
+    }
+    if (selectedSymptom.length === 0) {
+      alert('メニューを選択してください。');
+      return;
+    }
+    if (!selectedDateTime) {
+      alert('希望日時を選択してください。');
+      return;
+    }
+
+    // LINEトークにメッセージを送信
+    const messageText = `【予約フォーム】\nお名前：${name}\n電話番号：${phone}\nご来店回数：${visitCount}\nコース：${selectedMenu}\nメニュー：${selectedSymptom.join(', ')}${selectedOptions.length > 0 ? ', ' + selectedOptions.join(', ') : ''}\n希望日時：${selectedDateTime}\nメッセージ：${message}`;
+
+    if (typeof window !== 'undefined' && (window as any).liff) {
+      (window as any).liff.sendMessages([{
+        type: 'text',
+        text: messageText
+      }]).then(() => {
+        alert('予約を送信しました。');
+        (window as any).liff.closeWindow();
+      }).catch((err: any) => {
+        console.error('メッセージの送信に失敗しました', err);
+        alert('送信に失敗しました。もう一度お試しください。');
+      });
+    } else {
+      // 開発環境では console.log
+      console.log('予約内容:', messageText);
+      alert('予約内容をコンソールに出力しました（開発環境）');
+    }
+  };
+
+  // 性別に基づいてメニューカテゴリをフィルタリング
+  const getFilteredCategories = () => {
+    if (!activeConfig?.menu_structure?.categories) return [];
+    
+    return activeConfig.menu_structure.categories.filter((category: any) => {
+      // カテゴリレベルの性別フィルタをチェック
+      if (category.gender_filter && category.gender_filter !== 'both') {
+        return !selectedGender || selectedGender === category.gender_filter;
+      }
+      
+      // カテゴリ内に表示可能なメニューがあるかチェック
+      if (category.items) {
+        return category.items.some((item: any) => {
+          if (item.gender_filter && item.gender_filter !== 'both') {
+            return !selectedGender || selectedGender === item.gender_filter;
+          }
+          return true;
+        });
+      }
+      
+      return true;
+    });
+  };
+
+  // 性別に基づいてメニューアイテムをフィルタリング
+  const getFilteredMenuItems = (category: any) => {
+    if (!category?.items) return category?.menus || [];
+    
+    return category.items.filter((item: any) => {
+      if (item.gender_filter && item.gender_filter !== 'both') {
+        return !selectedGender || selectedGender === item.gender_filter;
+      }
+      return true;
+    });
+  };
+
+  const renderGenderSelection = () => {
+    if (!activeConfig.gender_selection?.enabled) return null;
+
+    return (
+      <div>
+        <div className="label">
+          性別選択<span className="required">必須</span>
+        </div>
+        <div className="visit-buttons">
+          {activeConfig.gender_selection.options.map((option: any) => (
+            <button 
+              key={option.value}
+              type="button" 
+              className={selectedGender === option.value ? 'active' : ''}
+              onClick={() => handleGenderSelect(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderVisitOptions = () => {
+    if (!activeConfig.visit_options || activeConfig.visit_options.length === 0) return null;
+
+    return (
+      <div>
+        <div className="label">
+          ご来店回数<span className="required">必須</span>
+        </div>
+        <div className="visit-buttons">
+          {activeConfig.visit_options.map((option: any) => (
+            <button 
+              key={option.id}
+              type="button" 
+              className={visitCount === option.label ? 'active' : ''}
+              onClick={() => handleVisitSelect(option.label)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMenuCategories = () => {
+    if (!activeConfig.menu_structure?.categories) return null;
+
+    const filteredCategories = getFilteredCategories();
+
+    return (
+      <div>
+        <div className="label">
+          メニューをお選びください<span className="required">必須</span>
+        </div>
+        <div className="info-text">
+          ※メニューを選択すると<br />空き状況のカレンダーが表示されます
+        </div>
+        <div className="menu-sections">
+          {filteredCategories.map((category: any) => (
+            <button 
+              key={category.id}
+              type="button"
+              className={activeMenuCategory === (category.display_name || category.name) ? 'active' : ''}
+              onClick={() => handleMenuCategorySelect(category.display_name || category.name)}
+            >
+              {category.display_name || category.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMenuItems = () => {
+    if (!activeMenuCategory || !activeConfig.menu_structure?.categories) return null;
+
+    const category = activeConfig.menu_structure.categories.find(
+      (cat: any) => cat.display_name === activeMenuCategory
+    );
+
+    if (!category) return null;
+
+    return (
+      <div id={category.id} className="menu-section active">
+        <div className="labeltyuuou">
+          <span className="highlight-text">◆{category.display_name}◆</span>
+        </div>
+        <div className="symptoms">
+          {category.menus.map((item: any) => (
+            <button 
+              key={item.id}
+              type="button"
+              className={selectedSymptom.includes(item.name) ? 'active' : ''}
+              onClick={() => handleMenuItemSelect(item)}
+              data-price={item.price}
+            >
+              {item.name}
+              {item.price && `（${item.price}円`}
+              {item.duration && `/${item.duration}分）`}
+            </button>
+          ))}
+        </div>
+
+        {category.options && category.options.length > 0 && (
+          <>
+            <div className="labeltyuuou">
+              <span className="highlight-text">オプション</span>
+            </div>
+            <div className="irradiations">
+              {category.options.map((option: any) => (
+                <button 
+                  key={option.id}
+                  type="button"
+                  className={selectedOptions.includes(option.name) ? 'active' : ''}
+                  onClick={() => {
+                    const isSelected = selectedOptions.includes(option.name);
+                    handleOptionSelect(option, !isSelected);
+                  }}
+                  data-price={option.price}
+                >
+                  {option.name}
+                  {option.price && `（${option.price}円`}
+                  {option.duration && `/${option.duration}分）`}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  const renderSummary = () => {
+    const totalMinutes = selectedMenuTime + selectedOptionsTime + selectedVisitTime;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const totalAmount = menuPrice + optionsPrice;
+
+    const labelStyle = "color:#0c0c0c; font-size:14px; border:1px solid #0c0c0c; padding:0px 3px; border-radius:4px;";
+
+    return (
+      <div id="displayInfo">
+        <div className="info-row">
+          <p><span style={{color: labelStyle}}><strong>お名前</strong></span> {name}</p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>来店回数</strong></span> {visitCount || '未選択'}
+          </p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>コース</strong></span> {selectedMenu || '未選択'}
+          </p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>メニュー</strong></span><br />
+            {selectedSymptom.length > 0 ? selectedSymptom.join(', ') : '未選択'}
+          </p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>オプション</strong></span><br />
+            {selectedOptions.length > 0 ? selectedOptions.join(', ') : 'なし'}
+          </p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>所要時間</strong></span> {hours > 0 ? `${hours}時間` : ''}{minutes}分
+          </p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>希望日時</strong></span> {selectedDateTime ? selectedDateTime.toLocaleDateString('ja-JP') + ' ' + selectedDateTime.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '未選択'}
+          </p>
+        </div>
+        <hr />
+        <div className="info-row">
+          <p>
+            <span style={{color: labelStyle}}><strong>合計金額</strong></span> ¥{totalAmount.toLocaleString()}
+          </p>
+        </div>
+        <hr />
+      </div>
+    );
+  };
 
   return (
-    <Box 
-      sx={{ 
-        minHeight: '100vh',
-        bgcolor: 'grey.50',
-        py: 2
-      }}
-    >
-      <Box sx={{ maxWidth: 600, mx: 'auto', px: 2 }}>
-        {/* ヘッダー */}
-        <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
-          <Avatar 
-            sx={{ 
-              bgcolor: form.config.basic_info.theme_color,
-              width: 60,
-              height: 60,
-              mx: 'auto',
-              mb: 2
-            }}
-          >
-            {form.config.basic_info.store_name.charAt(0)}
-          </Avatar>
-          <Typography variant="h5" gutterBottom>
-            {form.config.basic_info.form_name}
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            {form.config.basic_info.store_name}
-          </Typography>
-        </Paper>
+    <>
+      <style>{`
+        body {
+          font-family: 'Poppins', sans-serif;
+          background-color: #ffffff;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          height: 100vh;
+          margin: 0;
+          padding-top: 5px;
+          overflow-x: hidden;
+        }
 
-        {/* ステップ1: 来店回数選択 */}
-        {currentStep === 1 && (
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              来店回数を選択してください
-            </Typography>
-            <RadioGroup
-              value={selections.visit_option?.id || ''}
-              onChange={(e) => {
-                const option = form.config.visit_options.find(o => o.id === e.target.value);
-                if (option) handleVisitOptionChange(option);
-              }}
-            >
-              {form.config.visit_options.map((option) => (
-                <FormControlLabel
-                  key={option.id}
-                  value={option.id}
-                  control={<Radio />}
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography>{option.label}</Typography>
-                      <Chip 
-                        size="small" 
-                        label={`¥${option.price.toLocaleString()}`}
-                        color="primary"
-                      />
-                      <Chip 
-                        size="small" 
-                        label={`${option.duration}分`}
-                        variant="outlined"
-                      />
-                    </Box>
-                  }
-                />
-              ))}
-            </RadioGroup>
-            
-            {/* 性別選択 */}
-            {form.config.gender_selection?.enabled && (
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  性別を選択してください
-                  {form.config.gender_selection.required && (
-                    <Typography component="span" color="error" sx={{ ml: 1 }}>
-                      *
-                    </Typography>
-                  )}
-                </Typography>
-                <RadioGroup
-                  value={selections.gender || ''}
-                  onChange={(e) => {
-                    setSelections(prev => ({
-                      ...prev,
-                      gender: e.target.value as 'male' | 'female'
-                    }));
-                  }}
-                >
-                  {form.config.gender_selection.options.map((option) => (
-                    <FormControlLabel
-                      key={option.value}
-                      value={option.value}
-                      control={<Radio />}
-                      label={option.label}
-                    />
-                  ))}
-                </RadioGroup>
-              </Box>
-            )}
-            
-            <Button
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, bgcolor: form.config.basic_info.theme_color }}
-              disabled={
-                !selections.visit_option ||
-                (form.config.gender_selection?.enabled && 
-                 form.config.gender_selection.required && 
-                 !selections.gender)
-              }
-              onClick={() => setCurrentStep(2)}
-            >
-              次へ
-            </Button>
-          </Paper>
-        )}
+        .container {
+          background-color: #fdfdfd;
+          border-radius: 12px;
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+          width: 90%;
+          max-width: 500px;
+          padding: 25px;
+          box-sizing: border-box;
+          margin: 0 auto;
+        }
 
-        {/* ステップ2: メニュー選択 */}
-        {currentStep === 2 && (
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              メニューを選択してください
-            </Typography>
-            
-            {form.config.menu_structure.categories
-              .filter(category => {
-                // 性別選択が無効の場合は、全てのカテゴリーを表示
-                if (!form.config.gender_selection?.enabled) {
-                  return true;
-                }
-                
-                // 性別選択が有効だが、まだ性別が選択されていない場合は、
-                // 性別条件が設定されていないカテゴリーのみ表示
-                if (!selections.gender) {
-                  return !category.gender_condition || category.gender_condition === 'all';
-                }
-                
-                // 性別が選択されている場合は、その性別に対応するカテゴリーを表示
-                return category.gender_condition === 'all' || 
-                       category.gender_condition === selections.gender ||
-                       !category.gender_condition;
-              })
-              .map((category) => (
-              <Box key={category.id} sx={{ mb: 3 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 'bold' }}>
-                  {category.display_name}
-                </Typography>
-                
-                {/* メインメニュー */}
-                <Box sx={{ display: 'grid', gap: 2 }}>
-                  {category.menus.map((menu) => (
-                    <Card 
-                      key={menu.id}
-                      sx={{ 
-                        cursor: 'pointer',
-                        border: selections.selected_menus.some(m => m.id === menu.id) ? 2 : 1,
-                        borderColor: selections.selected_menus.some(m => m.id === menu.id) 
-                          ? form.config.basic_info.theme_color 
-                          : 'grey.300'
-                      }}
-                      onClick={() => handleMenuToggle(menu)}
-                    >
-                      <CardContent sx={{ py: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="subtitle2" gutterBottom>
-                                {menu.name}
-                              </Typography>
-                              {menu.image_url && (
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleImageClick(menu.image_url!, menu.image_name || '', menu.name);
-                                  }}
-                                  sx={{ 
-                                    color: 'primary.main',
-                                    '&:hover': { backgroundColor: 'primary.50' }
-                                  }}
-                                >
-                                  <InfoIcon fontSize="small" />
-                                </IconButton>
-                              )}
-                            </Box>
-                            {menu.description && (
-                              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                {menu.description}
-                              </Typography>
-                            )}
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              {form.config.menu_structure.display_options.show_price && (
-                                <Chip 
-                                  size="small" 
-                                  label={`¥${menu.price.toLocaleString()}`}
-                                  color="primary"
-                                  variant="outlined"
-                                />
-                              )}
-                              {form.config.menu_structure.display_options.show_duration && (
-                                <Chip 
-                                  size="small" 
-                                  icon={<AccessTime />}
-                                  label={`${menu.duration}分`}
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          </Box>
-                          <Checkbox
-                            checked={selections.selected_menus.some(m => m.id === menu.id)}
-                            onChange={() => handleMenuToggle(menu)}
-                          />
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Box>
+        h1 {
+          background: linear-gradient(135deg, ${activeConfig?.basic_info?.theme_color || '#13ca5e'}, ${activeConfig?.basic_info?.theme_color || '#13ca5e'});
+          color: white;
+          padding: 20px;
+          border-radius: 0 0px 0px 0px;
+          text-align: center;
+          display: block;
+          margin: -20px -15px 20px -15px;
+          font-size: 26px;
+          font-weight: 100;
+          box-shadow: inset 0 -5px 10px rgba(0, 0, 0, 0.05);
+          position: relative;
+          overflow: hidden;
+        }
 
-                {/* オプションメニュー */}
-                {category.options.length > 0 && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      オプション
-                    </Typography>
-                    <FormGroup>
-                      {category.options.map((option) => (
-                        <FormControlLabel
-                          key={option.id}
-                          control={
-                            <Checkbox
-                              checked={selections.selected_options.some(o => o.id === option.id)}
-                              onChange={() => handleOptionToggle(option)}
-                            />
-                          }
-                          label={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography variant="body2">{option.name}</Typography>
-                              {option.image_url && (
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleImageClick(option.image_url!, option.image_name || '', option.name);
-                                  }}
-                                  sx={{ 
-                                    color: 'primary.main',
-                                    '&:hover': { backgroundColor: 'primary.50' }
-                                  }}
-                                >
-                                  <InfoIcon fontSize="small" />
-                                </IconButton>
-                              )}
-                              <Chip 
-                                size="small" 
-                                label={`+¥${option.price.toLocaleString()}`}
-                                color="secondary"
-                              />
-                            </Box>
-                          }
-                        />
-                      ))}
-                    </FormGroup>
-                  </Box>
-                )}
-              </Box>
-            ))}
+        .label {
+          display: block;
+          margin-bottom: 20px;
+          padding: 3px;
+          font-weight: 400;
+          background-color: ${activeConfig?.basic_info?.theme_color || '#13ca5e'};
+          color: #ffffff;
+          border-radius: 0px;
+          font-size: 18px;
+          text-align: center;
+          text-indent: 20px;
+          position: relative;
+          overflow: hidden;
+          border-top: 1px solid black;
+          border-bottom: 1px solid black;
+        }
 
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setCurrentStep(1)}
-              >
-                戻る
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                sx={{ bgcolor: form.config.basic_info.theme_color }}
-                disabled={selections.selected_menus.length === 0}
-                onClick={() => setCurrentStep(3)}
-              >
-                次へ
-              </Button>
-            </Box>
-          </Paper>
-        )}
+        .labeltyuuou {
+          display: block;
+          margin-bottom: 20px;
+          padding: 3px;
+          background-color: ${activeConfig?.basic_info?.theme_color || '#13ca5e'};
+          color: #ffffff;
+          border-radius: 0px;
+          font-size: 18px;
+          text-align: center;
+          text-indent: 0px;
+          position: relative;
+          overflow: hidden;
+          border-top: 1px solid black;
+          border-bottom: 1px solid black;
+        }
 
-        {/* ステップ3: 日時選択 */}
-        {currentStep === 3 && (
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              ご希望の日時を選択してください
-            </Typography>
-            
-            <CalendarSelector
-              onDateTimeSelect={handleDateTimeSelect}
-              selectedDate={selections.selected_datetime?.toISOString().split('T')[0]}
-              selectedTime={selections.selected_datetime?.toTimeString().split(' ')[0].slice(0, 5)}
-            />
+        .labelContent {
+          display: block;
+          margin-bottom: 10px;
+          padding: 3px;
+          font-weight: 400;
+          background-color: #ffffff;
+          color: rgb(20, 20, 20);
+          border-radius: 0px;
+          font-size: 18px;
+          text-align: center;
+          text-indent: 0px;
+          position: relative;
+          overflow: hidden;
+          border-top: 1px solid black;
+          border-bottom: 1px solid black;
+        }
 
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setCurrentStep(2)}
-              >
-                戻る
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                sx={{ bgcolor: form.config.basic_info.theme_color }}
-                disabled={!selections.selected_datetime}
-                onClick={() => setCurrentStep(4)}
-              >
-                次へ
-              </Button>
-            </Box>
-          </Paper>
-        )}
+        .required {
+          color: #ffffff;
+          font-weight: lighter;
+          font-size: 0.6em;
+          margin-left: 5px;
+          vertical-align: 0.8em;
+          background-color: rgb(255, 15, 15);
+          padding: 0 5px;
+          border-radius: 3px;
+          margin-right: 5px;
+        }
 
-        {/* ステップ4: お客様情報入力 */}
-        {currentStep === 4 && (
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              お客様情報を入力してください
-            </Typography>
-            
-            <Box sx={{ display: 'grid', gap: 3 }}>
-              <TextField
-                fullWidth
-                label="お名前"
-                required
-                value={selections.customer_info.name}
-                onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
-                InputProps={{
-                  startAdornment: <Person sx={{ mr: 1, color: 'text.secondary' }} />
-                }}
+        input[type="text"],
+        input[type="tel"],
+        input[type="datetime-local"],
+        textarea {
+          width: 100%;
+          padding: 12px;
+          margin-bottom: 10px;
+          border: 1px solid #555555;
+          border-radius: 3px;
+          box-sizing: border-box;
+          font-size: 16px;
+          transition: all 0.3s;
+          position: relative;
+          top: -5px;
+        }
+
+        .visit-buttons,
+        .menu-sections {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-bottom: 20px;
+        }
+
+        .visit-buttons button,
+        .menu-sections button {
+          flex: 1;
+          padding: 10px;
+          border: 1px solid #2e2e2e;
+          border-radius: 4px;
+          background-color: #f7f7f7;
+          cursor: pointer;
+          box-sizing: border-box;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .visit-buttons button.active,
+        .menu-sections button.active {
+          background-color: #ffffff;
+          color: #141414;
+        }
+
+        .symptoms,
+        .irradiations {
+          display: block;
+        }
+
+        .symptoms button,
+        .irradiations button {
+          display: block;
+          width: 100%;
+          padding: 10px;
+          margin-bottom: 10px;
+          border: 1px solid #000000;
+          border-radius: 4px;
+          background-color: #ffffff;
+          cursor: pointer;
+          box-sizing: border-box;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .symptoms button.active,
+        .irradiations button.active {
+          background-color: #ffffff;
+          color: #000000;
+          outline: 1px solid #2b2b2b;
+          outline-offset: 2px;
+          box-shadow: 0 0 0 3px ${activeConfig?.basic_info?.theme_color || '#13ca5e'};
+        }
+
+        .info-text {
+          position: relative;
+          top: -20px;
+          margin-top: 0;
+          margin-bottom: 0px;
+          font-size: 13px;
+          color: #000000;
+          line-height: 1.5;
+          text-align: center;
+          word-wrap: break-word;
+          background-color: #f3f3f3;
+          padding: 0px;
+          border-radius: 0 0 4px 4px;
+          border: 1px solid black;
+          border-top: none;
+        }
+
+        .submit-button {
+          width: 100%;
+          padding: 15px;
+          font-size: 18px;
+          background-color: ${activeConfig?.basic_info?.theme_color || '#13ca5e'};
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          margin-top: 12px;
+        }
+
+        .submit-button:hover {
+          background-color: ${activeConfig?.basic_info?.theme_color || '#13ca5e'};
+          opacity: 0.9;
+        }
+
+        .info-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin: -6px 0;
+        }
+
+        hr {
+          margin: -5px 0;
+        }
+
+        .menu-section {
+          display: none;
+        }
+
+        .menu-section.active {
+          display: block;
+        }
+
+        @media (max-width: 768px) {
+          .container {
+            padding: 15px;
+          }
+          
+          h1 {
+            font-size: 22px;
+          }
+          
+          input,
+          button {
+            font-size: 14px;
+          }
+          
+          .info-text {
+            font-size: 11.5px;
+            top: -20px;
+            line-height: 2.0;
+          }
+        }
+      `}</style>
+
+      <div className="container">
+        <h1>
+          {activeConfig.basic_info?.form_name || 'フォーム'}
+          <br />
+          予約フォーム
+          {isPreviewMode && (
+            <div style={{ fontSize: '14px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '5px', marginTop: '10px', borderRadius: '3px' }}>
+              プレビューモード
+            </div>
+          )}
+        </h1>
+
+        <div className="label">
+          お客様名<span className="required">必須</span>
+        </div>
+        <input 
+          type="text" 
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="お名前を入力してください" 
+        />
+
+        <div className="label">
+          電話番号<span className="required">必須</span>
+        </div>
+        <input 
+          type="tel" 
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="電話番号を入力してください" 
+        />
+
+        {renderGenderSelection()}
+        {renderVisitOptions()}
+        {renderMenuCategories()}
+        {renderMenuItems()}
+
+        {showCalendar && selectedSymptom.length > 0 && (
+          <div>
+            <div className="label">
+              希望日時<span className="required">必須</span>
+            </div>
+            <div style={{ 
+              padding: '20px', 
+              border: '1px solid #ccc', 
+              borderRadius: '4px',
+              marginBottom: '20px'
+            }}>
+              <WeeklyCalendar
+                businessHours={activeConfig.calendar_settings.business_hours}
+                selectedDateTime={selectedDateTime}
+                onDateTimeSelect={setSelectedDateTime}
+                totalDuration={selectedMenuTime + selectedOptionsTime + selectedVisitTime}
+                advanceBookingDays={activeConfig.calendar_settings.advance_booking_days}
               />
-              
-              <TextField
-                fullWidth
-                label="電話番号"
-                required
-                value={selections.customer_info.phone}
-                onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
-                InputProps={{
-                  startAdornment: <Phone sx={{ mr: 1, color: 'text.secondary' }} />
-                }}
-              />
-              
-              <TextField
-                fullWidth
-                label="ご要望・メッセージ（任意）"
-                multiline
-                rows={3}
-                value={selections.customer_info.message}
-                onChange={(e) => handleCustomerInfoChange('message', e.target.value)}
-                InputProps={{
-                  startAdornment: <Message sx={{ mr: 1, color: 'text.secondary', alignSelf: 'flex-start', mt: 1 }} />
-                }}
-              />
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setCurrentStep(3)}
-              >
-                戻る
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                sx={{ bgcolor: form.config.basic_info.theme_color }}
-                disabled={!selections.customer_info.name || !selections.customer_info.phone}
-                onClick={() => setCurrentStep(5)}
-              >
-                次へ
-              </Button>
-            </Box>
-          </Paper>
+            </div>
+          </div>
         )}
 
-        {/* ステップ5: 確認・送信 */}
-        {currentStep === 5 && (
-          <Paper sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              予約内容の確認
-            </Typography>
-            
-            {/* 選択内容表示 */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" gutterBottom>来店回数</Typography>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                {selections.visit_option?.label} - ¥{selections.visit_option?.price.toLocaleString()}
-              </Typography>
-              
-              <Typography variant="subtitle2" gutterBottom>選択メニュー</Typography>
-              {selections.selected_menus.map((menu) => (
-                <Typography key={menu.id} variant="body2">
-                  • {menu.name} - ¥{menu.price.toLocaleString()}
-                </Typography>
-              ))}
-              
-              {selections.selected_options.length > 0 && (
-                <>
-                  <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>オプション</Typography>
-                  {selections.selected_options.map((option) => (
-                    <Typography key={option.id} variant="body2">
-                      • {option.name} - ¥{option.price.toLocaleString()}
-                    </Typography>
-                  ))}
-                </>
-              )}
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <Typography variant="subtitle2" gutterBottom>予約日時</Typography>
-              <Typography variant="body2">
-                日付: {selections.selected_datetime?.toLocaleDateString('ja-JP', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'long'
-                })}
-              </Typography>
-              <Typography variant="body2">
-                時間: {selections.selected_datetime?.toLocaleTimeString('ja-JP', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </Typography>
-              
-              <Divider sx={{ my: 2 }} />
-              
-              <Typography variant="subtitle2" gutterBottom>お客様情報</Typography>
-              <Typography variant="body2">お名前: {selections.customer_info.name}</Typography>
-              <Typography variant="body2">電話番号: {selections.customer_info.phone}</Typography>
-              {selections.customer_info.message && (
-                <Typography variant="body2">メッセージ: {selections.customer_info.message}</Typography>
-              )}
-            </Box>
+        <div className="labelContent">
+          メッセージ<br />（質問等お気軽にご記入ください）
+        </div>
+        <textarea 
+          rows={4} 
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="メッセージを入力してください"
+        />
 
-            {/* 合計表示 */}
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="subtitle2">
-                合計料金: ¥{total.total_price.toLocaleString()}
-              </Typography>
-              <Typography variant="body2">
-                予想所要時間: {total.duration_minutes}分
-              </Typography>
-            </Alert>
+        <div className="labelContent">ご予約内容</div>
+        {renderSummary()}
 
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={() => setCurrentStep(4)}
-              >
-                戻る
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                sx={{ bgcolor: form.config.basic_info.theme_color }}
-                onClick={handleSubmit}
-              >
-                予約を確定する
-              </Button>
-            </Box>
-          </Paper>
-        )}
-
-        {/* 進行状況表示 */}
-        <Paper sx={{ p: 2, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            ステップ {currentStep} / 4
-          </Typography>
-        </Paper>
-
-        {/* 画像ポップアップダイアログ */}
-        <Dialog
-          open={imagePopup.open}
-          onClose={handleCloseImagePopup}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">
-                {imagePopup.menuName} - 詳細画像
-              </Typography>
-              <IconButton onClick={handleCloseImagePopup} size="small">
-                <CloseIcon />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            {imagePopup.imageUrl && (
-              <Box sx={{ textAlign: 'center' }}>
-                {imagePopup.imageName?.endsWith('.pdf') ? (
-                  <Box sx={{ p: 4 }}>
-                    <Typography variant="h6" gutterBottom>
-                      PDF ファイル
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {imagePopup.imageName}
-                    </Typography>
-                    <Button
-                      variant="contained"
-                      onClick={() => window.open(imagePopup.imageUrl, '_blank')}
-                    >
-                      PDFを開く
-                    </Button>
-                  </Box>
-                ) : (
-                  <Box>
-                    <img
-                      src={imagePopup.imageUrl}
-                      alt={imagePopup.menuName}
-                      style={{
-                        maxWidth: '100%',
-                        maxHeight: '70vh',
-                        objectFit: 'contain',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    {imagePopup.imageName && (
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        {imagePopup.imageName}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseImagePopup}>
-              閉じる
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </Box>
+        <button className="submit-button" onClick={handleSubmit}>
+          予約を行う
+        </button>
+      </div>
+    </>
   );
 };
 

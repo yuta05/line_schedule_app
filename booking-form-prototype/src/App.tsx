@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard';
 import FormManagement from './pages/FormManagement';
 import FormPreview from './pages/FormPreview';
 import CustomerForm from './pages/CustomerForm';
+import ServiceAdmin from './components/ServiceAdmin/ServiceAdmin';
+import StoreAdmin from './components/ServiceAdmin/StoreAdmin';
 
 const theme = createTheme({
   palette: {
@@ -51,17 +53,26 @@ const App: React.FC = () => {
       <CssBaseline />
       <Router>
         <Routes>
-          {/* 管理者向けルート（AppLayoutでラップ） */}
-          <Route path="/" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/settings" element={<AppLayout><div>設定（準備中）</div></AppLayout>} />
+          {/* サービス管理者向けルート */}
+          <Route path="/admin" element={<ServiceAdmin />} />
+          <Route path="/admin/:storeId" element={<StoreAdmin />} />
+          
+          {/* 店舗管理者向けルート */}
+          <Route path="/:storeId/admin" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/:storeId/admin/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/:storeId/admin/settings" element={<AppLayout><div>設定（準備中）</div></AppLayout>} />
           
           {/* フォーム管理（フルスクリーン） */}
+          <Route path="/form-management/:formId" element={<FormManagement />} />
           <Route path="/forms/:formId" element={<FormManagement />} />
           <Route path="/forms/:formId/preview" element={<FormPreview />} />
           
           {/* 顧客向けルート（レイアウトなし） */}
+          <Route path="/customer/:formId" element={<CustomerForm />} />
           <Route path="/form/:formId" element={<CustomerForm />} />
+          
+          {/* ルート */}
+          <Route path="/" element={<ServiceAdmin />} />
         </Routes>
       </Router>
     </ThemeProvider>

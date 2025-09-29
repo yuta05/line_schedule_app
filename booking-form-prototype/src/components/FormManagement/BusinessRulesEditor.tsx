@@ -18,7 +18,6 @@ import {
 import {
   ExpandMore,
   Schedule,
-  Event,
   Rule,
   AccessTime
 } from '@mui/icons-material';
@@ -44,10 +43,6 @@ const BusinessRulesEditor: React.FC<BusinessRulesEditorProps> = ({ form, onUpdat
 
   const [advanceBookingDays, setAdvanceBookingDays] = useState(
     form.config.calendar_settings.advance_booking_days || 30
-  );
-
-  const [googleCalendarUrl, setGoogleCalendarUrl] = useState(
-    form.config.calendar_settings.google_calendar_url || ''
   );
 
   const dayLabels = {
@@ -99,22 +94,6 @@ const BusinessRulesEditor: React.FC<BusinessRulesEditorProps> = ({ form, onUpdat
     onUpdate(updatedForm);
   };
 
-  const handleGoogleCalendarUrlChange = (url: string) => {
-    setGoogleCalendarUrl(url);
-    
-    const updatedForm = {
-      ...form,
-      config: {
-        ...form.config,
-        calendar_settings: {
-          ...form.config.calendar_settings,
-          google_calendar_url: url
-        }
-      }
-    };
-    onUpdate(updatedForm);
-  };
-
   const setAllDays = (template: 'weekday' | 'weekend' | 'closed') => {
     const newHours = { ...businessHours };
     
@@ -157,35 +136,6 @@ const BusinessRulesEditor: React.FC<BusinessRulesEditorProps> = ({ form, onUpdat
         <Rule />
         営業時間・ルール設定
       </Typography>
-
-      {/* Google Calendar API設定 */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Event />
-            Google Calendar API設定
-          </Typography>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Box sx={{ mb: 3 }}>
-            <TextField
-              fullWidth
-              label="Google Calendar API URL"
-              value={googleCalendarUrl}
-              onChange={(e) => handleGoogleCalendarUrlChange(e.target.value)}
-              placeholder="https://script.google.com/macros/s/..."
-              helperText="Google Apps ScriptのWebアプリURLを入力してください"
-              sx={{ mb: 2 }}
-            />
-            
-            {googleCalendarUrl && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Google Calendar APIが設定されています。予約情報が自動的にカレンダーに追加されます。
-              </Alert>
-            )}
-          </Box>
-        </AccordionDetails>
-      </Accordion>
 
       {/* 営業時間設定 */}
       <Accordion defaultExpanded>
@@ -318,9 +268,6 @@ const BusinessRulesEditor: React.FC<BusinessRulesEditorProps> = ({ form, onUpdat
                 </Typography>
                 <Typography variant="body2">
                   • 事前予約: {advanceBookingDays}日先まで
-                </Typography>
-                <Typography variant="body2">
-                  • Google Calendar: {googleCalendarUrl ? '設定済み' : '未設定'}
                 </Typography>
               </Alert>
             </Box>

@@ -1,14 +1,42 @@
 import type { Form, FormConfig, MenuSelections } from '../types/form';
+import type { Store, StoreWithForms } from '../types/store';
 
 const STORAGE_KEYS = {
   FORMS: 'booking_forms_prototype',
+  STORES: 'booking_stores_prototype',
   USER_INPUTS: 'user_inputs_cache',
   MENU_SELECTIONS: 'menu_selections_cache'
 };
 
+const getInitialStores = (): Store[] => [
+  {
+    id: 'store_0001',
+    name: '美容室A（東京店）',
+    owner_name: '田中太郎',
+    owner_email: 'tanaka@example.com',
+    phone: '03-1234-5678',
+    address: '東京都渋谷区1-2-3',
+    description: '東京にある美容室です。ブライダルエステとシェービングを専門としています。',
+    website_url: 'https://beauty-a.example.com',
+    status: 'active',
+    created_at: '2024-01-01T00:00:00Z',
+    updated_at: '2024-01-01T00:00:00Z'
+  }
+];
+
+// FormIDを英数文字列（長め）で生成するユーティリティ
+const generateSecureFormId = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = 'form_';
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 const getInitialData = (): Form[] => [
   {
-    id: 'form_0001',
+    id: 'form_AbC123dEf456GhI7',
     store_id: 'store_0001',
     config: {
       basic_info: {
@@ -44,7 +72,8 @@ const getInitialData = (): Form[] => [
                 price: 15000, 
                 duration: 30, 
                 category_id: 'bridal',
-                treatment_id: 'treatment1'
+                treatment_id: 'treatment1',
+                gender_filter: 'female'
               },
               { 
                 id: 'western_plan_a', 
@@ -52,7 +81,8 @@ const getInitialData = (): Form[] => [
                 price: 15000, 
                 duration: 60, 
                 category_id: 'bridal',
-                treatment_id: 'treatment2'
+                treatment_id: 'treatment2',
+                gender_filter: 'both'
               },
               { 
                 id: 'western_plan_b', 
@@ -60,6 +90,9 @@ const getInitialData = (): Form[] => [
                 price: 15000, 
                 duration: 120, 
                 category_id: 'bridal',
+                treatment_id: 'treatment3',
+                gender_filter: 'male'
+              },
                 treatment_id: 'treatment3'
               }
             ],
@@ -160,7 +193,7 @@ const getInitialData = (): Form[] => [
     last_published_at: '2024-01-01T00:00:00Z'
   },
   {
-    id: 'form_0002',
+    id: 'form_XyZ789pQr012StU3',
     store_id: 'store_0001',
     config: {
       basic_info: {
@@ -257,6 +290,77 @@ const getInitialData = (): Form[] => [
 ];
 
 export class LocalStorageService {
+  // ✅ Store管理
+  static getStores(): Store[] {
+    return this.getFromStorage(STORAGE_KEYS.STORES, getInitialStores());
+  }
+
+  static getStore(storeId: string): Store | null {
+    const stores = this.getStores();
+    return stores.find(store => store.id === storeId) || null;
+  }
+
+  static saveStore(store: Store): void {
+    const stores = this.getStores();
+    const existingIndex = stores.findIndex(s => s.id === store.id);
+    
+    if (existingIndex >= 0) {
+      stores[existingIndex] = { ...store, updated_at: new Date().toISOString() };
+    } else {
+      stores.push(store);
+    }
+    
+    this.saveToStorage(STORAGE_KEYS.STORES, stores);
+  }
+
+  static deleteStore(storeId: string): boolean {
+    const stores = this.getStores();
+    const storeIndex = stores.findIndex(s => s.id === storeId);
+    
+    if (storeIndex === -1) return false;
+    
+    // Store削除時に、関連するフォームも削除
+    const forms = this.getForms();
+    const updatedForms = forms.filter(form => form.store_id !== storeId);
+    this.saveToStorage(STORAGE_KEYS.FORMS, updatedForms);
+    
+    stores.splice(storeIndex, 1);
+    this.saveToStorage(STORAGE_KEYS.STORES, stores);
+    
+    return true;
+  }
+
+  static getAllStoresWithForms(): StoreWithForms[] {
+    const stores = this.getStores();
+    const allForms = this.getForms();
+    
+    return stores.map(store => {
+      const storeForms = allForms.filter(form => form.store_id === store.id);
+      const activeForms = storeForms.filter(form => form.status === 'active');
+      
+      return {
+        ...store,
+        forms: storeForms,
+        total_forms: storeForms.length,
+        active_forms: activeForms.length
+      };
+    });
+  }
+
+  static generateStoreId(): string {
+    const stores = this.getStores();
+    const storeIds = stores.map(store => store.id);
+    const maxStoreNumber = Math.max(
+      ...storeIds.map(id => parseInt(id.replace('store_', '')) || 0)
+    );
+    return `store_${(maxStoreNumber + 1).toString().padStart(4, '0')}`;
+  }
+
+  static generateFormId(): string {
+    // 英数文字列（長め）で生成
+    return generateSecureFormId();
+  }
+
   // ✅ フォーム管理
   static getForms(): Form[] {
     return this.getFromStorage(STORAGE_KEYS.FORMS, getInitialData());
@@ -380,26 +484,6 @@ export class LocalStorageService {
   static getPreviousSelection(formId: string): Partial<MenuSelections> | null {
     const cache = this.getMenuSelectionsCache();
     return cache[formId] || null;
-  }
-
-  // ✅ 新しい店舗ID生成（将来拡張用）
-  static generateStoreId(): string {
-    const forms = this.getForms();
-    const storeIds = forms.map(form => form.store_id);
-    const maxStoreNumber = Math.max(
-      ...storeIds.map(id => parseInt(id.replace('store_', '')) || 0)
-    );
-    return `store_${(maxStoreNumber + 1).toString().padStart(4, '0')}`;
-  }
-
-  // ✅ 新しいフォームID生成（将来拡張用）
-  static generateFormId(): string {
-    const forms = this.getForms();
-    const formIds = forms.map(form => form.id);
-    const maxFormNumber = Math.max(
-      ...formIds.map(id => parseInt(id.replace('form_', '')) || 0)
-    );
-    return `form_${(maxFormNumber + 1).toString().padStart(4, '0')}`;
   }
 
   // ✅ フォーム複製機能
@@ -549,6 +633,19 @@ export class LocalStorageService {
     this.saveToStorage(STORAGE_KEYS.FORMS, forms);
     
     return true;
+  }
+
+  static saveForm(form: Form): void {
+    const forms = this.getForms();
+    const existingIndex = forms.findIndex(f => f.id === form.id);
+    
+    if (existingIndex >= 0) {
+      forms[existingIndex] = form;
+    } else {
+      forms.push(form);
+    }
+    
+    this.saveToStorage(STORAGE_KEYS.FORMS, forms);
   }
 
   // プライベートメソッド

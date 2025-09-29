@@ -16,7 +16,8 @@ import {
 import {
   Dashboard as DashboardIcon
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
+import { LocalStorageService } from '../../services/localStorageService';
 
 const drawerWidth = 240;
 
@@ -29,12 +30,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const navigate = useNavigate();
   const location = useLocation();
+  const { storeId } = useParams<{ storeId: string }>();
+  
+  // 店舗情報を取得
+  const store = storeId ? LocalStorageService.getStore(storeId) : null;
 
   const menuItems = [
     {
       text: 'ダッシュボード',
       icon: <DashboardIcon />,
-      path: '/'
+      path: `/${storeId}/admin`
     }
   ];
 
@@ -42,7 +47,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     <Box>
       <Toolbar>
         <Typography variant="h6" noWrap component="div">
-          店舗管理
+          {store?.name || '店舗管理'}
         </Typography>
       </Toolbar>
       <List>

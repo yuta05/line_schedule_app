@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -19,14 +19,15 @@ import type { Form } from '../../types/form';
 interface BasicInfoEditorProps {
   form: Form;
   onUpdate: (updatedForm: Form) => void;
+  onHasChanges?: (hasChanges: boolean) => void; // 変更状態を親に通知
+  onSaveRequest?: number; // 外部からの保存要求カウンター
 }
 
-const BasicInfoEditor: React.FC<BasicInfoEditorProps> = ({ form, onUpdate }) => {
+const BasicInfoEditor: React.FC<BasicInfoEditorProps> = ({ form, onUpdate, onHasChanges, onSaveRequest }) => {
   const currentConfig = form.draft_config || form.config;
   
   const [formName, setFormName] = useState(currentConfig.basic_info.form_name);
   const [storeName, setStoreName] = useState(currentConfig.basic_info.store_name);
-  const [liffId, setLiffId] = useState(currentConfig.basic_info.liff_id);
   const [themeColor, setThemeColor] = useState(currentConfig.basic_info.theme_color);
   const [logoUrl, setLogoUrl] = useState(currentConfig.basic_info.logo_url || '');
   
@@ -36,56 +37,61 @@ const BasicInfoEditor: React.FC<BasicInfoEditorProps> = ({ form, onUpdate }) => 
   
   const [hasChanges, setHasChanges] = useState(false);
 
-  // 変更検知
-  useEffect(() => {
-    const isChanged = 
-      formName !== currentConfig.basic_info.form_name ||
-      storeName !== currentConfig.basic_info.store_name ||
-      liffId !== currentConfig.basic_info.liff_id ||
-      themeColor !== currentConfig.basic_info.theme_color ||
-      logoUrl !== (currentConfig.basic_info.logo_url || '') ||
-      genderEnabled !== (currentConfig.gender_selection?.enabled || false) ||
-      genderRequired !== (currentConfig.gender_selection?.required || false);
-    
-    setHasChanges(isChanged);
-  }, [formName, storeName, liffId, themeColor, logoUrl, genderEnabled, genderRequired, currentConfig]);
-
-  const handleSave = () => {
+    // 保存処理
+  const handleSave = useCallback(() => {
     const updatedDraftConfig = {
       ...currentConfig,
       basic_info: {
         ...currentConfig.basic_info,
         form_name: formName,
         store_name: storeName,
-        liff_id: liffId,
         theme_color: themeColor,
         logo_url: logoUrl || undefined
       },
       gender_selection: {
+        ...currentConfig.gender_selection,
         enabled: genderEnabled,
-        required: genderRequired,
-        options: [
-          { value: 'male' as const, label: '男性' },
-          { value: 'female' as const, label: '女性' }
-        ]
+        required: genderRequired
+      },
+      ui_settings: {
+        ...currentConfig.ui_settings,
+        theme_color: themeColor
       }
     };
 
-    const updatedForm: Form = {
+    const updatedForm = {
       ...form,
-      draft_config: updatedDraftConfig,
-      draft_status: 'draft',
-      updated_at: new Date().toISOString()
+      draft_config: updatedDraftConfig
     };
 
     onUpdate(updatedForm);
     setHasChanges(false);
-  };
+  }, [form, formName, storeName, themeColor, logoUrl, genderEnabled, genderRequired, onUpdate, currentConfig]);
+
+  // 変更検出
+  useEffect(() => {
+    const hasAnyChanges = 
+      formName !== currentConfig.basic_info.form_name ||
+      storeName !== currentConfig.basic_info.store_name ||
+      themeColor !== currentConfig.basic_info.theme_color ||
+      logoUrl !== (currentConfig.basic_info.logo_url || '') ||
+      genderEnabled !== (currentConfig.gender_selection?.enabled || false) ||
+      genderRequired !== (currentConfig.gender_selection?.required || false);
+    
+    setHasChanges(hasAnyChanges);
+    onHasChanges?.(hasAnyChanges);
+  }, [formName, storeName, themeColor, logoUrl, genderEnabled, genderRequired, currentConfig, onHasChanges]);
+
+  // 外部からの保存要求を処理
+  useEffect(() => {
+    if (onSaveRequest && onSaveRequest > 0 && hasChanges) {
+      handleSave();
+    }
+  }, [onSaveRequest, hasChanges, handleSave]);
 
   const handleReset = () => {
     setFormName(currentConfig.basic_info.form_name);
     setStoreName(currentConfig.basic_info.store_name);
-    setLiffId(currentConfig.basic_info.liff_id);
     setThemeColor(currentConfig.basic_info.theme_color);
     setLogoUrl(currentConfig.basic_info.logo_url || '');
     setGenderEnabled(currentConfig.gender_selection?.enabled || false);
@@ -152,19 +158,12 @@ const BasicInfoEditor: React.FC<BasicInfoEditorProps> = ({ form, onUpdate }) => 
               />
               <TextField
                 fullWidth
-                label="LIFF ID"
-                value={liffId}
-                onChange={(e) => setLiffId(e.target.value)}
-                helperText="LINE公式アカウントのLIFF ID"
-                variant="outlined"
-              />
-              <TextField
-                fullWidth
                 label="ロゴURL（オプション）"
                 value={logoUrl}
                 onChange={(e) => setLogoUrl(e.target.value)}
                 helperText="店舗ロゴ画像のURL"
                 variant="outlined"
+                sx={{ gridColumn: { md: 'span 2' } }}
               />
             </Box>
           </CardContent>

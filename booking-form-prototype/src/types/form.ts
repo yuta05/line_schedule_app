@@ -5,20 +5,33 @@ export interface MenuItem {
   price: number;
   duration: number;          // 分単位
   description?: string;
-  category_id: string;
-  treatment_id?: string;     // treatmentId対応
-  image_url?: string;        // 画像URL
+  treatment_info?: string;   // 治療情報
+  image_url?: string;
   image_name?: string;       // 画像ファイル名
+  category_id?: string;      // カテゴリID
+  gender_filter?: 'male' | 'female' | 'both';  // 性別フィルタ（新規追加）
+  options?: MenuOption[];    // メニューオプション（新規追加）
+}
+
+// メニューオプション（新規追加）
+export interface MenuOption {
+  id: string;
+  name: string;
+  price: number;
+  duration: number;          // 分単位
+  description?: string;
 }
 
 export interface MenuCategory {
   id: string;
   name: string;
-  display_name: string;      // ◆ブライダルコース◆形式
-  menus: MenuItem[];
-  options: MenuItem[];       // オプションメニュー
+  display_name: string;     // 表示名
+  items: MenuItem[];
+  menus: MenuItem[];        // メインメニュー一覧
+  options?: MenuItem[];     // オプションメニュー一覧
+  gender_filter?: 'male' | 'female' | 'both';  // カテゴリレベルの性別フィルタ
+  gender_condition?: 'male' | 'female' | 'all';  // 性別条件
   selection_mode: 'single' | 'multiple';
-  gender_condition?: 'male' | 'female' | 'all';  // 性別による表示条件
 }
 
 export interface VisitOption {
@@ -90,11 +103,11 @@ export interface FormConfig {
 }
 
 export interface Form {
-  id: string;          // form_0001, form_0002, ...
-  store_id: string;    // store_0001, store_0002, ...
+  id: string;          // form_abcd1234efgh5678 (英数ランダム文字列)
+  store_id: string;    // store_1, store_2, ...
   config: FormConfig;
   draft_config?: FormConfig;  // 下書き設定
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'paused';
   draft_status: 'none' | 'draft' | 'ready_to_publish';  // 下書きステータス
   created_at: string;
   updated_at: string;
@@ -113,7 +126,7 @@ export interface MenuSelections {
   visit_option: VisitOption | null;
   gender?: 'male' | 'female';       // 選択された性別
   selected_menus: MenuItem[];
-  selected_options: MenuItem[];
+  selected_options: MenuOption[];   // 選択されたオプション（新規追加）
   customer_info: CustomerInfo;
   selected_datetime: Date | null;
 }
@@ -125,19 +138,6 @@ export interface PriceCalculation {
   visit_fee: number;
   total_price: number;
   duration_minutes: number;
-}
-
-// 店舗情報（将来拡張用）
-export interface Store {
-  id: string;           // store_0001
-  name: string;         // "美容室A（東京店）"
-  region: string;       // "東京"
-  address?: string;
-  phone?: string;
-  email?: string;
-  status: 'active' | 'inactive';
-  created_at: string;
-  updated_at: string;
 }
 
 // カレンダー関連

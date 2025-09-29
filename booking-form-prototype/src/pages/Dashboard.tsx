@@ -16,12 +16,22 @@ import {
   Restaurant as MenuIcon,
   Category as CategoryIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { LocalStorageService } from '../services/localStorageService';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const forms = LocalStorageService.getStoreAForms();
+  const { storeId } = useParams<{ storeId: string }>();
+  
+  // 特定の店舗のフォームを取得
+  const forms = storeId ? LocalStorageService.getFormsByStoreId(storeId) : [];
+  const store = storeId ? LocalStorageService.getStore(storeId) : null;
+  
+  // 店舗が見つからない場合はサービス管理ページにリダイレクト
+  if (storeId && !store) {
+    navigate('/admin');
+    return null;
+  }
   
   const getTotalMenuCount = (form: ReturnType<typeof LocalStorageService.getForms>[0]): number => {
     return form.config.menu_structure.categories.reduce(
@@ -35,10 +45,10 @@ const Dashboard: React.FC = () => {
     <Box>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          予約フォーム管理
+          {store?.name} - 予約フォーム管理
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          登録された予約フォーム一覧
+          {store?.name}に登録された予約フォーム一覧
         </Typography>
       </Box>
       

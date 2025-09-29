@@ -76,7 +76,7 @@ const FormPreview: React.FC = () => {
     );
   }
 
-  const customerFormUrl = `/form/${formId}`;
+  const customerFormUrl = `/form/${formId}?preview=true`;
 
   return (
     <Box sx={{ 
@@ -186,15 +186,17 @@ const FormPreview: React.FC = () => {
                 <strong>テーマカラー:</strong> {(form.draft_config || form.config).basic_info.theme_color}
               </Typography>
               
-              <Typography variant="body2" gutterBottom>
-                <strong>ステータス:</strong>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2">
+                  <strong>ステータス:</strong>
+                </Typography>
                 <Chip 
                   size="small" 
                   label={form.status === 'active' ? 'アクティブ' : '非アクティブ'}
                   color={form.status === 'active' ? 'success' : 'default'}
                   sx={{ ml: 1 }}
                 />
-              </Typography>
+              </Box>
             </CardContent>
           </Card>
 

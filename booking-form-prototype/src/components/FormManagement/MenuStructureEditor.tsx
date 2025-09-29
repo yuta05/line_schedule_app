@@ -38,7 +38,7 @@ import {
   Close as CloseIcon,
   Check as CheckIcon
 } from '@mui/icons-material';
-import type { Form, MenuCategory, MenuItem } from '../../types/form';
+import type { Form, MenuCategory, MenuItem, MenuOption } from '../../types/form';
 import { ImageService } from '../../services/imageService';
 import { LocalStorageService } from '../../services/localStorageService';
 
@@ -68,6 +68,7 @@ const MenuItemDialog: React.FC<MenuItemDialogProps> = ({
   const [description, setDescription] = useState(menuItem?.description || '');
   const [imageUrl, setImageUrl] = useState(menuItem?.image_url || '');
   const [imageName, setImageName] = useState(menuItem?.image_name || '');
+  const [genderFilter, setGenderFilter] = useState(menuItem?.gender_filter || 'both');
   const [uploadError, setUploadError] = useState<string>('');
 
   useEffect(() => {
@@ -78,6 +79,7 @@ const MenuItemDialog: React.FC<MenuItemDialogProps> = ({
       setDescription(menuItem.description || '');
       setImageUrl(menuItem.image_url || '');
       setImageName(menuItem.image_name || '');
+      setGenderFilter(menuItem.gender_filter || 'both');
     } else {
       setName('');
       setPrice('');
@@ -85,6 +87,7 @@ const MenuItemDialog: React.FC<MenuItemDialogProps> = ({
       setDescription('');
       setImageUrl('');
       setImageName('');
+      setGenderFilter('both');
     }
     setUploadError('');
   }, [menuItem]);
@@ -127,7 +130,8 @@ const MenuItemDialog: React.FC<MenuItemDialogProps> = ({
       description: description || undefined,
       category_id: categoryId,
       image_url: imageUrl || undefined,
-      image_name: imageName || undefined
+      image_name: imageName || undefined,
+      gender_filter: genderFilter as 'male' | 'female' | 'both'
     };
     onSave(newMenuItem);
     onClose();
@@ -246,6 +250,23 @@ const MenuItemDialog: React.FC<MenuItemDialogProps> = ({
               顧客フォームでメニューの詳細情報として表示されます（最大5MB）
             </Typography>
           </Box>
+
+          {/* 性別フィルター */}
+          <FormControl fullWidth variant="outlined">
+            <InputLabel>性別フィルター</InputLabel>
+            <Select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              label="性別フィルター"
+            >
+              <MuiMenuItem value="both">すべて</MuiMenuItem>
+              <MuiMenuItem value="male">男性のみ</MuiMenuItem>
+              <MuiMenuItem value="female">女性のみ</MuiMenuItem>
+            </Select>
+            <FormHelperText>
+              このメニューを表示する性別を選択してください
+            </FormHelperText>
+          </FormControl>
         </Box>
       </DialogContent>
       <DialogActions>
@@ -374,6 +395,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ form, onUpdat
       id: newCategoryId,
       name: '新しいカテゴリー',
       display_name: '◆新しいカテゴリー◆',
+      items: [],
       menus: [],
       options: [],
       selection_mode: 'single',
@@ -408,7 +430,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ form, onUpdat
       prevCategories.map(category => {
         if (category.id === selectedCategoryId) {
           const isOption = selectedMenuItem?.id ? 
-            category.options.some(opt => opt.id === selectedMenuItem.id) :
+            category.options?.some(opt => opt.id === selectedMenuItem.id) :
             false;
           
           if (isOption) {
@@ -416,8 +438,8 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ form, onUpdat
             return {
               ...category,
               options: selectedMenuItem?.id ?
-                category.options.map(opt => opt.id === selectedMenuItem.id ? menuItem : opt) :
-                [...category.options, menuItem]
+                category.options?.map(opt => opt.id === selectedMenuItem.id ? menuItem : opt) :
+                [...(category.options || []), menuItem]
             };
           } else {
             // メインメニューの更新
@@ -441,7 +463,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ form, onUpdat
           return {
             ...category,
             menus: category.menus.filter(menu => menu.id !== menuItemId),
-            options: category.options.filter(opt => opt.id !== menuItemId)
+            options: category.options?.filter(opt => opt.id !== menuItemId) || []
           };
         }
         return category;
@@ -595,7 +617,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ form, onUpdat
                     )}
                     <Chip 
                       size="small" 
-                      label={`${category.menus.length}メニュー + ${category.options.length}オプション`}
+                      label={`${category.menus.length}メニュー + ${category.options?.length || 0}オプション`}
                     />
                   </Box>
                 </AccordionSummary>
@@ -683,7 +705,7 @@ const MenuStructureEditor: React.FC<MenuStructureEditorProps> = ({ form, onUpdat
                         </Button>
                       </Box>
                       <List dense>
-                        {category.options.map((option) => (
+                        {category.options?.map((option) => (
                           <ListItem key={option.id} divider>
                             <ListItemText
                               primary={option.name}
