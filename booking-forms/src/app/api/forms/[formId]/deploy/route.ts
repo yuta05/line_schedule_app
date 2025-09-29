@@ -468,6 +468,202 @@ function generateStaticFormHTML(form: any): string {
                         Array.from(document.querySelectorAll('[id^="visitBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
                         Array.from(document.querySelectorAll('[id^="couponBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
                     }
+                            // --- カレンダーUIロジック ---
+            // --- メニュー選択ロジック ---
+            document.addEventListener('DOMContentLoaded', function() {
+                // メニュー選択
+                Array.from(document.querySelectorAll('.border.border-gray-200.rounded-lg.p-4.mb-4')).forEach(categoryDiv => {
+                    Array.from(categoryDiv.querySelectorAll('button')).forEach(menuBtn => {
+                        menuBtn.addEventListener('click', function() {
+                            // 通常メニュー or サブメニュー
+                            const menuName = menuBtn.querySelector('.text-left')?.textContent;
+                            const isSubMenu = menuBtn.parentElement.classList.contains('ml-6');
+                            if (isSubMenu) {
+                                // サブメニュー選択
+                                Array.from(menuBtn.parentElement.querySelectorAll('button')).forEach(b => b.classList.remove('border-green-500','bg-green-50','text-green-700'));
+                                menuBtn.classList.add('border-green-500','bg-green-50','text-green-700');
+                                // formState.selectedSubMenusに反映（menuId, subMenuId）
+                                const parentMenuDiv = menuBtn.closest('.space-y-3');
+                                const menuId = parentMenuDiv?.querySelector('.text-left')?.textContent;
+                                formState.selectedSubMenus[menuId] = menuName;
+                            } else {
+                                // 通常メニュー選択
+                                menuBtn.classList.toggle('border-green-500');
+                                menuBtn.classList.toggle('bg-green-50');
+                                menuBtn.classList.toggle('text-green-700');
+                                // formState.selectedMenusに反映
+                                const categoryId = categoryDiv.querySelector('.font-semibold')?.textContent;
+                                if (!formState.selectedMenus[categoryId]) formState.selectedMenus[categoryId] = [];
+                                if (formState.selectedMenus[categoryId].includes(menuName)) {
+                                    formState.selectedMenus[categoryId] = formState.selectedMenus[categoryId].filter(m => m !== menuName);
+                                } else {
+                                    formState.selectedMenus[categoryId].push(menuName);
+                                }
+                            }
+                            // オプション選択
+                            if (menuBtn.parentElement.classList.contains('space-y-2')) {
+                                // オプションボタン
+                                menuBtn.classList.toggle('border-blue-500');
+                                menuBtn.classList.toggle('bg-blue-50');
+                                menuBtn.classList.toggle('text-blue-700');
+                                const menuId = menuBtn.closest('.space-y-3')?.querySelector('.text-left')?.textContent;
+                                if (!formState.selectedMenuOptions[menuId]) formState.selectedMenuOptions[menuId] = [];
+                                if (formState.selectedMenuOptions[menuId].includes(menuBtn.textContent.trim())) {
+                                    formState.selectedMenuOptions[menuId] = formState.selectedMenuOptions[menuId].filter(o => o !== menuBtn.textContent.trim());
+                                } else {
+                                    formState.selectedMenuOptions[menuId].push(menuBtn.textContent.trim());
+                                }
+                            }
+                            saveSelectionToStorage();
+                        });
+                    });
+                });
+                // ローカルストレージ復元
+                loadSelectionFromStorage();
+            });
+            // --- ローカルストレージ保存/復元 ---
+            function saveSelectionToStorage() {
+                localStorage.setItem('bookingFormSelection', JSON.stringify({
+                    selectedMenus: formState.selectedMenus,
+                    selectedSubMenus: formState.selectedSubMenus,
+                    selectedMenuOptions: formState.selectedMenuOptions,
+                    gender: formState.gender,
+                    visitCount: formState.visitCount,
+                    couponUsage: formState.couponUsage,
+                    timestamp: Date.now()
+                }));
+            }
+            function loadSelectionFromStorage() {
+                const saved = localStorage.getItem('bookingFormSelection');
+                if (!saved) return;
+                try {
+                    const data = JSON.parse(saved);
+                    formState.selectedMenus = data.selectedMenus || {};
+                    formState.selectedSubMenus = data.selectedSubMenus || {};
+                    formState.selectedMenuOptions = data.selectedMenuOptions || {};
+                    formState.gender = data.gender || '';
+                    formState.visitCount = data.visitCount || '';
+                    formState.couponUsage = data.couponUsage || '';
+                    // UI反映（選択ボタンのハイライト）
+                    Object.entries(formState.selectedMenus).forEach(([categoryId, menuNames]) => {
+                        Array.from(document.querySelectorAll('.border.border-gray-200.rounded-lg.p-4.mb-4')).forEach(categoryDiv => {
+                            if (categoryDiv.querySelector('.font-semibold')?.textContent === categoryId) {
+                                menuNames.forEach(menuName => {
+                                    Array.from(categoryDiv.querySelectorAll('button')).forEach(menuBtn => {
+                                        if (menuBtn.querySelector('.text-left')?.textContent === menuName) {
+                                            menuBtn.classList.add('border-green-500','bg-green-50','text-green-700');
+                                        }
+                                    });
+                                });
+                            }
+                        });
+                    });
+                    Object.entries(formState.selectedSubMenus).forEach(([menuId, subMenuName]) => {
+                        Array.from(document.querySelectorAll('.ml-6.mt-3.space-y-2.border-l-2.border-blue-200.pl-4 button')).forEach(subBtn => {
+                            if (subBtn.querySelector('.text-left')?.textContent === subMenuName) {
+                                subBtn.classList.add('border-green-500','bg-green-50','text-green-700');
+                            }
+                        });
+                    });
+                    Object.entries(formState.selectedMenuOptions).forEach(([menuId, optionNames]) => {
+                        optionNames.forEach(optionName => {
+                            Array.from(document.querySelectorAll('.ml-6.pl-4.border-l-2.border-green-200.space-y-2 button')).forEach(optBtn => {
+                                if (optBtn.textContent.trim() === optionName) {
+                                    optBtn.classList.add('border-blue-500','bg-blue-50','text-blue-700');
+                                }
+                            });
+                        });
+                    });
+                } catch (e) {}
+            }
+                            let currentWeekStart = getWeekStart(new Date());
+                            function getWeekStart(date) {
+                                const d = new Date(date);
+                                const day = d.getDay();
+                                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                                return new Date(d.setDate(diff));
+                            }
+                            function getWeekDates(weekStart) {
+                                const dates = [];
+                                for (let i = 0; i < 7; i++) {
+                                    const date = new Date(weekStart);
+                                    date.setDate(weekStart.getDate() + i);
+                                    dates.push(date);
+                                }
+                                return dates;
+                            }
+                            function renderCalendar() {
+                                // 月表示
+                                document.getElementById('currentMonth').textContent = currentWeekStart.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+                                // 日付ヘッダー
+                                const weekDates = getWeekDates(currentWeekStart);
+                                const thead = document.querySelector('#calendarTable thead tr');
+                                // 既存ヘッダー削除
+                                while (thead.children.length > 1) thead.removeChild(thead.lastChild);
+                                weekDates.forEach((date, idx) => {
+                                    const th = document.createElement('th');
+                                    th.className = 'text-center p-2 bg-gray-100 border border-gray-400 text-xs';
+                                    th.innerHTML = `${date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })}<br>(${['日','月','火','水','木','金','土'][date.getDay()]})`;
+                                    thead.appendChild(th);
+                                });
+                                // 時間帯行生成
+                                const timeSlots = ['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30'];
+                                const tbody = document.querySelector('#calendarTable tbody');
+                                tbody.innerHTML = '';
+                                timeSlots.forEach(time => {
+                                    const tr = document.createElement('tr');
+                                    const tdTime = document.createElement('td');
+                                    tdTime.className = 'text-center p-1 border border-gray-400 text-xs bg-gray-50 font-medium';
+                                    tdTime.textContent = time;
+                                    tr.appendChild(tdTime);
+                                    weekDates.forEach((date, dateIdx) => {
+                                        const td = document.createElement('td');
+                                        td.className = 'text-center p-1 border border-gray-400 text-xs cursor-pointer';
+                                        // 空き状況ロジック（ここでは全て○とする。必要に応じてAPI連携可）
+                                        const now = new Date();
+                                        const slotDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), parseInt(time.split(':')[0]), parseInt(time.split(':')[1]));
+                                        const isPast = now > slotDate;
+                                        if (isPast) {
+                                            td.classList.add('bg-gray-100','text-gray-400','cursor-not-allowed');
+                                            td.textContent = '×';
+                                        } else {
+                                            td.classList.add('bg-white','hover:bg-gray-200');
+                                            td.textContent = '○';
+                                            td.addEventListener('click', function() {
+                                                formState.selectedDate = date.toISOString().split('T')[0];
+                                                formState.selectedTime = time;
+                                                // 選択セルのハイライト
+                                                Array.from(document.querySelectorAll('#calendarTable td.selected')).forEach(cell => cell.classList.remove('selected'));
+                                                td.classList.add('selected');
+                                            });
+                                        }
+                                        tr.appendChild(td);
+                                    });
+                                    tbody.appendChild(tr);
+                                });
+                            }
+                            // 週/月移動
+                            document.addEventListener('DOMContentLoaded', function() {
+                                renderCalendar();
+                                document.getElementById('prevWeekBtn').addEventListener('click', function() {
+                                    currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+                                    renderCalendar();
+                                });
+                                document.getElementById('nextWeekBtn').addEventListener('click', function() {
+                                    currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+                                    renderCalendar();
+                                });
+                                document.getElementById('prevMonthBtn').addEventListener('click', function() {
+                                    currentWeekStart.setMonth(currentWeekStart.getMonth() - 1);
+                                    currentWeekStart = getWeekStart(currentWeekStart);
+                                    renderCalendar();
+                                });
+                                document.getElementById('nextMonthBtn').addEventListener('click', function() {
+                                    currentWeekStart.setMonth(currentWeekStart.getMonth() + 1);
+                                    currentWeekStart = getWeekStart(currentWeekStart);
+                                    renderCalendar();
+                                });
+                            });
                 </script>
         </div>
     </body>
