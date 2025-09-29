@@ -4,10 +4,10 @@ import { join } from 'path';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
-    const { formId } = params;
+    const { formId } = await params;
     const body = await request.json();
     const { storeId } = body;
 
@@ -82,283 +82,396 @@ export async function POST(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function generateStaticFormHTML(form: any): string {
-  // メニューHTML生成
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function generateMenuHTML(menuStructure: any): string {
-    if (!menuStructure?.categories) return '';
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return menuStructure.categories.map((category: any) => `
-      <div id="category-${category.id}" class="space-y-3">
-        <h3 class="font-semibold text-gray-700">${category.name}</h3>
-        ${(category.menus || []).map((menu: any) => `
-          <div id="menu-${menu.id}" class="checkbox-wrapper">
-            <input type="checkbox" value="${menu.id}" onchange="onMenuChange(this)">
-            <div class="menu-info">
-              <span class="menu-name">${menu.name}</span>
-              <div class="menu-price">${menu.price?.toLocaleString()}円</div>
-              ${menu.description ? `<div class="menu-description">${menu.description}</div>` : ''}
+        // --- メニュー選択・サブメニュー・オプションのHTML構造を追加 ---
+        const menuHtml = form.config.menu_structure.categories.map((category: any) => `
+            <div class="border border-gray-200 rounded-lg p-4 mb-4">
+                <div class="font-semibold text-gray-700 mb-2">${category.name}</div>
+                <div class="space-y-2">
+                    ${(category.menus || []).map((menu: any) => `
+                        <div class="space-y-3">
+                            ${menu.has_submenu && menu.sub_menu_items && menu.sub_menu_items.length > 0 ? `
+                                <button type="button" class="w-full flex items-center justify-between p-3 border-2 rounded-md font-medium transition-all duration-200">
+                                    <div class="flex items-center">
+                                        <span class="mr-2">▶</span>
+                                        <div>
+                                            <div class="text-left">${menu.name}</div>
+                                            ${menu.description ? `<div class="text-sm opacity-70 text-left">${menu.description}</div>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="text-sm opacity-70">サブメニューを選択</div>
+                                </button>
+                                <div class="ml-6 mt-3 space-y-2 border-l-2 border-blue-200 pl-4">
+                                    <div class="text-sm font-medium text-gray-700 mb-3">サブメニューを選択してください</div>
+                                    ${(menu.sub_menu_items || []).map((subMenu: any) => `
+                                        <button type="button" class="w-full flex items-center justify-between p-3 border-2 rounded-md font-medium transition-all duration-200">
+                                            <div>
+                                                <div class="text-left">${subMenu.name}</div>
+                                                ${subMenu.description ? `<div class="text-sm opacity-70 text-left">${subMenu.description}</div>` : ''}
+                                            </div>
+                                            <div class="text-right ml-4">
+                                                ${form.config.menu_structure.display_options.show_price ? `<div class="font-semibold">¥${subMenu.price?.toLocaleString()}</div>` : ''}
+                                                ${form.config.menu_structure.display_options.show_duration ? `<div class="text-sm opacity-70">${subMenu.duration}分</div>` : ''}
+                                            </div>
+                                        </button>
+                                    `).join('')}
+                                </div>
+                            ` : `
+                                <button type="button" class="w-full flex items-center justify-between p-3 border-2 rounded-md font-medium transition-all duration-200">
+                                    <div>
+                                        <div class="text-left">${menu.name}</div>
+                                        ${menu.description ? `<div class="text-sm opacity-70 text-left">${menu.description}</div>` : ''}
+                                    </div>
+                                    <div class="text-right ml-4">
+                                        ${form.config.menu_structure.display_options.show_price && menu.price !== undefined ? `<div class="font-semibold">¥${menu.price.toLocaleString()}</div>` : ''}
+                                        ${form.config.menu_structure.display_options.show_duration && menu.duration !== undefined ? `<div class="text-sm opacity-70">${menu.duration}分</div>` : ''}
+                                    </div>
+                                </button>
+                                ${(menu.options && menu.options.length > 0) ? `
+                                    <div class="ml-6 pl-4 border-l-2 border-green-200 space-y-2">
+                                        <div class="text-sm font-medium text-gray-700 mb-3">オプション</div>
+                                        ${(menu.options || []).map((option: any) => `
+                                            <button type="button" class="w-full flex items-center justify-between p-2 border-2 rounded-md text-sm font-medium transition-all duration-200">
+                                                <div class="flex items-center">
+                                                    <div>
+                                                        <div class="text-left">
+                                                            ${option.name}
+                                                            ${option.is_default ? `<span class="ml-2 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded">おすすめ</span>` : ''}
+                                                        </div>
+                                                        ${option.description ? `<div class="text-xs opacity-70 text-left">${option.description}</div>` : ''}
+                                                    </div>
+                                                </div>
+                                                <div class="text-right ml-2">
+                                                    ${form.config.menu_structure.display_options.show_price ? `<div class="font-medium">${option.price > 0 ? `+¥${option.price.toLocaleString()}` : '無料'}</div>` : ''}
+                                                    ${form.config.menu_structure.display_options.show_duration && option.duration > 0 ? `<div class="text-xs opacity-70">+${option.duration}分</div>` : ''}
+                                                </div>
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                ` : ''}
+                            `}
+                        </div>
+                    `).join('')}
+                </div>
             </div>
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
-  }
+        `).join('');
+        // --- フォーム本体にメニューHTMLを挿入 ---
+        return `<!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${form.config.basic_info.form_name}</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f9fafb; color: #333; }
+            .max-w-2xl { max-width: 672px; margin: 0 auto; }
+            .rounded-lg { border-radius: 0.5rem; }
+            .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); }
+            .p-6 { padding: 1.5rem; }
+            .mb-6 { margin-bottom: 1.5rem; }
+            .text-2xl { font-size: 1.5rem; font-weight: bold; }
+            .text-lg { font-size: 1.125rem; font-weight: 600; }
+            .text-sm { font-size: 0.875rem; }
+            .font-bold { font-weight: bold; }
+            .font-semibold { font-weight: 600; }
+            .font-medium { font-weight: 500; }
+            .text-gray-700 { color: #374151; }
+            .text-gray-600 { color: #4b5563; }
+            .bg-white { background: #fff; }
+            .bg-blue-50 { background: #eff6ff; }
+            .bg-gray-50 { background: #f9fafb; }
+            .border { border: 1px solid #e5e7eb; }
+            .w-full { width: 100%; }
+            .mb-4 { margin-bottom: 1rem; }
+            .btn { padding: 0.75rem 1.5rem; border-radius: 0.375rem; border: none; background: #2563eb; color: #fff; font-weight: 500; cursor: pointer; }
+            .btn:disabled { opacity: 0.5; }
+            .calendar-container { margin-bottom: 20px; }
+            .calendar { border: 1px solid #e5e7eb; border-radius: 0.5rem; overflow: hidden; background: #fff; }
+            .calendar th, .calendar td { font-size: 12px; text-align: center; padding: 4px; border: 2px solid #696969; }
+            .calendar td.selected { background: #13ca5e; color: #fff; }
+            .calendar td { cursor: pointer; }
+            .calendar td.unavailable { background: #f3f4f6; color: #bbb; cursor: not-allowed; }
+            .calendar td.available:hover { background: #e0f2fe; }
+            .form-section { margin-bottom: 2rem; }
+            .flex { display: flex; gap: 1rem; }
+            .space-y-4 > * + * { margin-top: 1rem; }
+            .space-y-2 > * + * { margin-top: 0.5rem; }
+            .border-l-2 { border-left: 2px solid #13ca5e; }
+            .pl-4 { padding-left: 1rem; }
+            .ml-4 { margin-left: 1rem; }
+            .mt-1 { margin-top: 0.25rem; }
+            .rounded-md { border-radius: 0.375rem; }
+            .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+            .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+            .text-blue-700 { color: #2563eb; }
+            .text-green-700 { color: #059669; }
+            .border-blue-500 { border-color: #2563eb; }
+            .border-green-500 { border-color: #059669; }
+            .bg-blue-50 { background: #eff6ff; }
+            .bg-green-50 { background: #f0fdf4; }
+            .hover\:bg-gray-50:hover { background: #f9fafb; }
+            .hover\:bg-blue-700:hover { background: #1d4ed8; }
+            .hover\:bg-gray-800:hover { background: #1f2937; }
+            .text-red-500 { color: #ef4444; }
+            .opacity-70 { opacity: 0.7; }
+            .text-center { text-align: center; }
+            .text-left { text-align: left; }
+            .text-right { text-align: right; }
+            .hidden { display: none; }
+        </style>
+    </head>
+    <body>
+        <div class="max-w-2xl mx-auto">
+            <!-- ヘッダー -->
+            <div class="rounded-lg shadow-sm p-6 mb-6 text-white" style="background:${form.config.basic_info.theme_color}">
+                <h1 class="text-2xl font-bold mb-2">${form.config.basic_info.form_name}</h1>
+                <p class="opacity-90">${form.config.basic_info.store_name || 'ご予約フォーム'}</p>
+            </div>
+            <!-- フォーム本体 -->
+            <form id="bookingForm" class="bg-white rounded-lg shadow-sm p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-6">ご予約内容</h2>
+                        <!-- 基本情報 -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">お名前 <span class="text-red-500">*</span></label>
+                            <input type="text" name="name" id="name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                        </div>
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">電話番号 <span class="text-red-500">*</span></label>
+                            <input type="tel" name="phone" id="phone" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+                        </div>
+                        <!-- 性別選択 -->
+                        ${form.config.gender_selection.enabled ? `
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">性別${form.config.gender_selection.required ? ' <span class=\"text-red-500\">*</span>' : ''}</label>
+                                <div class="flex space-x-4">
+                                    ${form.config.gender_selection.options.map((option: any, optionIndex: number) => `
+                                        <button type="button" class="flex-1 py-3 px-4 border-2 rounded-md font-medium transition-all duration-200" id="genderBtn${optionIndex}" data-value="${option.value}">${option.label}</button>
+                                    `).join('')}
+                                </div>
+                                <input type="hidden" name="gender" id="gender" />
+                            </div>
+                        ` : ''}
+                        <!-- ご来店回数選択 -->
+                        ${form.config.visit_count_selection?.enabled ? `
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ご来店回数${form.config.visit_count_selection.required ? ' <span class=\"text-red-500\">*</span>' : ''}</label>
+                                <div class="flex space-x-4">
+                                    ${form.config.visit_count_selection.options.map((option: any, optionIndex: number) => `
+                                        <button type="button" class="flex-1 py-3 px-4 border-2 rounded-md font-medium transition-all duration-200" id="visitBtn${optionIndex}" data-value="${option.value}">${option.label}</button>
+                                    `).join('')}
+                                </div>
+                                <input type="hidden" name="visitCount" id="visitCount" />
+                            </div>
+                        ` : ''}
+                        <!-- クーポン利用有無選択 -->
+                        ${form.config.coupon_selection?.enabled ? `
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">${form.config.coupon_selection.coupon_name ? `${form.config.coupon_selection.coupon_name}クーポン利用有無` : 'クーポン利用有無'}</label>
+                                <div class="flex space-x-4">
+                                    ${form.config.coupon_selection.options.map((option: any, optionIndex: number) => `
+                                        <button type="button" class="flex-1 py-3 px-4 border-2 rounded-md font-medium transition-all duration-200" id="couponBtn${optionIndex}" data-value="${option.value}">${option.label}</button>
+                                    `).join('')}
+                                </div>
+                                <input type="hidden" name="couponUsage" id="couponUsage" />
+                            </div>
+                        ` : ''}
+                        <!-- メニュー選択 -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">メニューをお選びください</label>
+                            <div class="space-y-4">
+                                ${menuHtml}
+                            </div>
+                        </div>
+                        <!-- カレンダー（希望日時選択） -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">希望日時 <span class="text-red-500">*</span></label>
+                            <div class="text-sm text-gray-600 mb-3">※メニューを選択すると空き状況のカレンダーが表示されます</div>
+                            <div class="calendar-container">
+                                <div class="current-month-container mb-4">
+                                    <span class="current-month text-lg font-bold text-gray-700" id="currentMonth"></span>
+                                </div>
+                                <div class="month-button-container mb-3">
+                                    <button type="button" class="month-button px-5 py-2 bg-gray-700 text-white border-none rounded cursor-pointer hover:bg-gray-800" id="prevMonthBtn">前月</button>
+                                    <button type="button" class="month-button px-5 py-2 bg-gray-700 text-white border-none rounded cursor-pointer hover:bg-gray-800" id="nextMonthBtn">翌月</button>
+                                </div>
+                                <div class="week-button-container mb-3">
+                                    <button type="button" class="week-button px-5 py-2 bg-gray-700 text-white border-none rounded cursor-pointer hover:bg-gray-800" id="prevWeekBtn">前週</button>
+                                    <button type="button" class="week-button px-5 py-2 bg-gray-700 text-white border-none rounded cursor-pointer hover:bg-gray-800" id="nextWeekBtn">翌週</button>
+                                </div>
+                                <div class="calendar bg-white border border-gray-300 rounded shadow-sm overflow-hidden">
+                                    <table class="w-full border-collapse" id="calendarTable">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-center p-2 bg-gray-100 border border-gray-400 text-xs">時間</th>
+                                                <!-- 日付ヘッダーはJSで生成 -->
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <!-- 時間帯ごとの行はJSで生成 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                                            <!-- 予約内容確認（モーダル） -->
+                                            <div id="confirmationModal" class="fixed inset-0 bg-white/20 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+                                                <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden">
+                                                    <div class="p-6">
+                                                        <h3 class="text-lg font-semibold text-gray-900 mb-4">予約内容をご確認ください</h3>
+                                                        <div class="space-y-3 mb-6" id="confirmationDetails">
+                                                            <!-- JSで内容を動的生成 -->
+                                                        </div>
+                                                        <div class="flex space-x-3">
+                                                            <button type="button" id="editButton" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">修正する</button>
+                                                            <button type="button" id="confirmSubmitButton" class="flex-1 px-4 py-2 rounded-md text-white font-medium" style="background:${form.config.basic_info.theme_color}">予約確定</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <!-- 予約完了画面 -->
+                                            <div id="completeScreen" class="min-h-screen bg-gray-50 py-8 px-4 hidden">
+                                                <div class="max-w-2xl mx-auto">
+                                                    <div class="bg-white rounded-lg shadow-sm p-8 text-center">
+                                                        <div class="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                                                            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                        <h1 class="text-2xl font-bold text-gray-900 mb-4">ご予約を承りました</h1>
+                                                        <p class="text-gray-600 mb-6">この度はご予約いただき、ありがとうございます。<br />確認のご連絡を順次お送りいたします。</p>
+                                                        <div class="bg-gray-50 rounded-lg p-4 mb-6 text-left" id="completeDetails">
+                                                            <!-- JSで内容を動的生成 -->
+                                                        </div>
+                                                        <button type="button" id="newBookingButton" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700">新しい予約をする</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+            </form>
+                <script>
+                    // --- 状態管理用変数 ---
+                    let formState = {
+                        name: '',
+                        phone: '',
+                        gender: '',
+                        visitCount: '',
+                        couponUsage: '',
+                        selectedMenus: {},
+                        selectedSubMenus: {},
+                        selectedMenuOptions: {},
+                        selectedDate: '',
+                        selectedTime: ''
+                    };
 
-  return `<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${form.form_name}</title>
-    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+                    // --- イベントリスナー登録 ---
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // 基本情報入力
+                        document.getElementById('name').addEventListener('input', e => { formState.name = e.target.value; });
+                        document.getElementById('phone').addEventListener('input', e => { formState.phone = e.target.value; });
+                        // 性別選択
+                        Array.from(document.querySelectorAll('[id^="genderBtn"]')).forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                formState.gender = btn.getAttribute('data-value');
+                                Array.from(document.querySelectorAll('[id^="genderBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
+                                btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                            });
+                        });
+                        // 来店回数
+                        Array.from(document.querySelectorAll('[id^="visitBtn"]')).forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                formState.visitCount = btn.getAttribute('data-value');
+                                Array.from(document.querySelectorAll('[id^="visitBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
+                                btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                            });
+                        });
+                        // クーポン
+                        Array.from(document.querySelectorAll('[id^="couponBtn"]')).forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                formState.couponUsage = btn.getAttribute('data-value');
+                                Array.from(document.querySelectorAll('[id^="couponBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
+                                btn.classList.add('border-blue-500', 'bg-blue-50', 'text-blue-700');
+                            });
+                        });
+                        // 予約ボタン
+                        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            if (!validateForm()) return;
+                            showConfirmationModal();
+                        });
+                        // 修正ボタン
+                        document.getElementById('editButton').addEventListener('click', function() {
+                            hideConfirmationModal();
+                        });
+                        // 予約確定ボタン
+                        document.getElementById('confirmSubmitButton').addEventListener('click', function() {
+                            showCompleteScreen();
+                        });
+                        // 新しい予約ボタン
+                        document.getElementById('newBookingButton').addEventListener('click', function() {
+                            resetForm();
+                        });
+                    });
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f8f9fa;
-        }
+                    // --- バリデーション ---
+                    function validateForm() {
+                        if (!formState.name.trim()) { alert('お名前を入力してください'); return false; }
+                        if (!formState.phone.trim()) { alert('電話番号を入力してください'); return false; }
+                        // 必須項目
+                        if (${form.config.gender_selection.enabled && form.config.gender_selection.required ? 'true' : 'false'} && !formState.gender) { alert('性別を選択してください'); return false; }
+                        if (${form.config.visit_count_selection?.enabled && form.config.visit_count_selection.required ? 'true' : 'false'} && !formState.visitCount) { alert('ご来店回数を選択してください'); return false; }
+                        if (${form.config.coupon_selection?.enabled && form.config.coupon_selection.required ? 'true' : 'false'} && !formState.couponUsage) { alert('クーポン利用有無を選択してください'); return false; }
+                        // 日時
+                        if (!formState.selectedDate) { alert('ご希望日を選択してください'); return false; }
+                        if (!formState.selectedTime) { alert('ご希望時間を選択してください'); return false; }
+                        return true;
+                    }
 
-        .max-w-2xl {
-            max-width: 672px;
-        }
-        
-        .mx-auto {
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        .p-4 {
-            padding: 1rem;
-        }
-        
-        .space-y-6 > * + * {
-            margin-top: 1.5rem;
-        }
-        
-        .space-y-4 > * + * {
-            margin-top: 1rem;
-        }
-        
-        .space-y-3 > * + * {
-            margin-top: 0.75rem;
-        }
-        
-        .space-y-2 > * + * {
-            margin-top: 0.5rem;
-        }
+                    // --- 予約内容確認モーダル表示 ---
+                    function showConfirmationModal() {
+                        document.getElementById('confirmationModal').classList.remove('hidden');
+                        // 内容をJSで生成
+                        const details = document.getElementById('confirmationDetails');
+                        details.innerHTML = `
+                            <div class="flex justify-between"><span class="text-gray-600">お名前</span><span class="font-medium">${formState.name}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-600">電話番号</span><span class="font-medium">${formState.phone}</span></div>
+                            ${formState.gender ? `<div class=\"flex justify-between\"><span class=\"text-gray-600\">性別</span><span class=\"font-medium\">${formState.gender}</span></div>` : ''}
+                            ${formState.visitCount ? `<div class=\"flex justify-between\"><span class=\"text-gray-600\">ご来店回数</span><span class=\"font-medium\">${formState.visitCount}</span></div>` : ''}
+                            ${formState.couponUsage ? `<div class=\"flex justify-between\"><span class=\"text-gray-600\">クーポン</span><span class=\"font-medium\">${formState.couponUsage}</span></div>` : ''}
+                            <div class="flex justify-between"><span class="text-gray-600">ご希望日時</span><span class="font-medium">${formState.selectedDate} ${formState.selectedTime}</span></div>
+                        `;
+                    }
+                    function hideConfirmationModal() {
+                        document.getElementById('confirmationModal').classList.add('hidden');
+                    }
 
-        .bg-white {
-            background-color: white;
-        }
-        
-        .rounded-lg {
-            border-radius: 0.5rem;
-        }
-        
-        .shadow-sm {
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        }
-        
-        .border {
-            border-width: 1px;
-            border-color: #e5e7eb;
-            border-style: solid;
-        }
+                    // --- 予約完了画面表示 ---
+                    function showCompleteScreen() {
+                        document.getElementById('confirmationModal').classList.add('hidden');
+                        document.getElementById('completeScreen').classList.remove('hidden');
+                        // 内容をJSで生成
+                        const details = document.getElementById('completeDetails');
+                        details.innerHTML = `
+                            <div><span class="font-medium">お名前:</span> ${formState.name}</div>
+                            <div><span class="font-medium">電話番号:</span> ${formState.phone}</div>
+                            <div><span class="font-medium">ご希望日時:</span> ${formState.selectedDate} ${formState.selectedTime}</div>
+                            ${formState.gender ? `<div><span class=\"font-medium\">性別:</span> ${formState.gender}</div>` : ''}
+                            ${formState.visitCount ? `<div><span class=\"font-medium\">ご来店回数:</span> ${formState.visitCount}</div>` : ''}
+                            ${formState.couponUsage ? `<div><span class=\"font-medium\">クーポン:</span> ${formState.couponUsage}</div>` : ''}
+                        `;
+                    }
 
-        .text-2xl {
-            font-size: 1.5rem;
-            line-height: 2rem;
-        }
-        
-        .text-lg {
-            font-size: 1.125rem;
-            line-height: 1.75rem;
-        }
-        
-        .text-sm {
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-        }
-        
-        .font-bold {
-            font-weight: 700;
-        }
-        
-        .font-semibold {
-            font-weight: 600;
-        }
-        
-        .font-medium {
-            font-weight: 500;
-        }
-
-        .text-gray-700 {
-            color: #374151;
-        }
-        
-        .text-gray-600 {
-            color: #4b5563;
-        }
-        
-        .text-gray-500 {
-            color: #6b7280;
-        }
-        
-        .text-blue-600 {
-            color: #2563eb;
-        }
-        
-        .text-green-600 {
-            color: #059669;
-        }
-
-        .bg-blue-50 {
-            background-color: #eff6ff;
-        }
-        
-        .bg-gray-50 {
-            background-color: #f9fafb;
-        }
-        
-        .bg-green-50 {
-            background-color: #f0fdf4;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.5rem 1rem;
-            border: 1px solid transparent;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            line-height: 1.25rem;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-            text-decoration: none;
-        }
-        
-        .btn-primary {
-            background-color: #2563eb;
-            color: white;
-            border-color: #2563eb;
-        }
-        
-        .btn-primary:hover {
-            background-color: #1d4ed8;
-            border-color: #1d4ed8;
-        }
-        
-        .btn-secondary {
-            background-color: white;
-            color: #374151;
-            border-color: #d1d5db;
-        }
-        
-        .btn-secondary:hover {
-            background-color: #f9fafb;
-        }
-
-        .btn-sm {
-            padding: 0.25rem 0.5rem;
-            font-size: 0.75rem;
-        }
-
-        .grid {
-            display: grid;
-        }
-        
-        .grid-cols-2 {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-        
-        .gap-4 {
-            gap: 1rem;
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            transition: all 0.15s ease-in-out;
-        }
-        
-        .checkbox-wrapper:hover {
-            background-color: #f9fafb;
-            border-color: #d1d5db;
-        }
-        
-        .checkbox-wrapper.selected {
-            background-color: #eff6ff;
-            border-color: #2563eb;
-        }
-
-        input[type="checkbox"] {
-            width: 1rem;
-            height: 1rem;
-            accent-color: #2563eb;
-        }
-        
-        input[type="radio"] {
-            width: 1rem;
-            height: 1rem;
-            accent-color: #2563eb;
-        }
-
-        input[type="text"], input[type="tel"] {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            font-size: 1rem;
-            transition: all 0.15s ease-in-out;
-        }
-
-        input[type="text"]:focus, input[type="tel"]:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .menu-info {
-            flex: 1;
-        }
-        
-        .menu-name {
-            display: block;
-            font-weight: 500;
-            color: #374151;
-            margin-bottom: 0.25rem;
-        }
-        
-        .menu-price {
-            color: #059669;
-            font-weight: 600;
-        }
-        
-        .menu-description {
-            color: #6b7280;
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-        }
-
-        .gender-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
+                    // --- 新しい予約 ---
+                    function resetForm() {
+                        document.getElementById('completeScreen').classList.add('hidden');
+                        document.getElementById('bookingForm').reset();
+                        formState = { name: '', phone: '', gender: '', visitCount: '', couponUsage: '', selectedMenus: {}, selectedSubMenus: {}, selectedMenuOptions: {}, selectedDate: '', selectedTime: '' };
+                        // 選択ボタンのスタイルリセット
+                        Array.from(document.querySelectorAll('[id^="genderBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
+                        Array.from(document.querySelectorAll('[id^="visitBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
+                        Array.from(document.querySelectorAll('[id^="couponBtn"]')).forEach(b => b.classList.remove('border-blue-500', 'bg-blue-50', 'text-blue-700'));
+                    }
+                </script>
+        </div>
+    </body>
+    </html>
         
         .gender-btn {
             flex: 1;

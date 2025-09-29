@@ -246,8 +246,3 @@ NEXT_PUBLIC_APP_URL=https://your-domain.com
 - 画像アップロード問題 → Dropbox API設定を確認
 - GAS連携問題 → エンドポイントURL設定を確認
 
-## 📞 サポート
-
-- 開発チーム内での質問: Slack #dev-booking-forms
-- バグレポート: GitHub Issues
-- 機能要望: プロダクトオーナーまで

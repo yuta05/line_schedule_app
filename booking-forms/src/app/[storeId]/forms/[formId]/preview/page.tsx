@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Form } from '@/types/form';
-import CustomerFormContent from '@/components/CustomerFormContent';
 
 export default function FormPreviewPage() {
   const params = useParams();

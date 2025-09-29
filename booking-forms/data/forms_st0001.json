@@ -1,10 +1,10 @@
 [
   {
-    "id": "rf0z84f9dn4j",
+    "id": "55m7vrb9fbjn",
     "store_id": "st0001",
-    "form_name": "Test",
+    "form_name": "test",
     "basic_info": {
-      "form_name": "Test",
+      "form_name": "test",
       "store_name": "",
       "liff_id": "2008098784-5ZQ1LRn3",
       "theme_color": "#3B82F6",
@@ -68,7 +68,7 @@
       ]
     },
     "ui_settings": {
-      "theme_color": "#3B82F6",
+      "theme_color": "#a83bb0",
       "button_style": "rounded",
       "show_repeat_booking": false,
       "show_side_nav": true,
@@ -120,118 +120,181 @@
       "advance_booking_days": 30
     },
     "status": "inactive",
-    "created_at": "2025-09-26T08:17:05.614Z",
-    "updated_at": "2025-09-26T08:17:05.614Z"
-  },
-  {
-    "id": "hpnos1kmg0ui",
-    "store_id": "st0001",
-    "form_name": "Test2",
-    "basic_info": {
-      "form_name": "Test2",
-      "store_name": "",
-      "liff_id": "2008098784-5ZQ1LRn3",
-      "theme_color": "#3B82F6",
-      "show_gender_selection": true
-    },
-    "menu_structure": {
-      "structure_type": "category",
-      "categories": [
-        {
-          "id": "cat1",
-          "name": "カット",
-          "menus": [
-            {
-              "id": "menu1",
-              "name": "スタンダードカット",
-              "price": 3000,
-              "duration": 60,
-              "description": "基本的なカット",
-              "target_gender": [
-                "male",
-                "female"
-              ],
-              "has_submenu": true,
-              "sub_menu_items": [
-                {
-                  "name": "ショート",
-                  "price": 3000,
-                  "duration": 60
-                },
-                {
-                  "name": "ミディアム",
-                  "price": 3500,
-                  "duration": 70
-                },
-                {
-                  "name": "ロング",
-                  "price": 4000,
-                  "duration": 80
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "ui_settings": {
-      "theme_color": "#3B82F6",
-      "button_style": "rounded",
-      "show_repeat_booking": false,
-      "show_side_nav": true,
-      "show_visit_count": false,
-      "show_coupon_selection": false
-    },
-    "gas_endpoint": "https://script.google.com/macros/s/AKfycby3QfS2E892nXbS-fnfBVrJX8KyJWTSsisKpe9zVz5QGWzvTH7Zc3PlOay9j60aSQLp/exec",
-    "line_settings": {
-      "liff_id": "2008098784-5ZQ1LRn3"
-    },
-    "business_rules": {
-      "business_hours": {
-        "monday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": false
-        },
-        "tuesday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": false
-        },
-        "wednesday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": false
-        },
-        "thursday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": false
-        },
-        "friday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": false
-        },
-        "saturday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": false
-        },
-        "sunday": {
-          "open": "09:00",
-          "close": "18:00",
-          "closed": true
+    "created_at": "2025-09-29T04:45:08.304Z",
+    "updated_at": "2025-09-29T06:09:21.059Z",
+    "draft_status": "draft",
+    "config": {
+      "basic_info": {
+        "form_name": "test",
+        "store_name": "",
+        "liff_id": "2008098784-5ZQ1LRn3",
+        "theme_color": "#3B82F6"
+      },
+      "visit_options": [],
+      "gender_selection": {
+        "enabled": true,
+        "required": false,
+        "options": [
+          {
+            "value": "male",
+            "label": "男性"
+          },
+          {
+            "value": "female",
+            "label": "女性"
+          }
+        ]
+      },
+      "visit_count_selection": {
+        "enabled": true,
+        "required": false,
+        "options": [
+          {
+            "value": "first",
+            "label": "初回"
+          },
+          {
+            "value": "repeat",
+            "label": "2回目以降"
+          }
+        ]
+      },
+      "coupon_selection": {
+        "enabled": true,
+        "coupon_name": "",
+        "options": [
+          {
+            "value": "use",
+            "label": "利用する"
+          },
+          {
+            "value": "not_use",
+            "label": "利用しない"
+          }
+        ]
+      },
+      "menu_structure": {
+        "structure_type": "category_based",
+        "categories": [
+          {
+            "id": "cat1",
+            "name": "カット",
+            "menus": [
+              {
+                "id": "menu1",
+                "name": "スタンダードカット",
+                "price": 3000,
+                "duration": 60,
+                "description": "基本的なカット",
+                "target_gender": [
+                  "male",
+                  "female"
+                ],
+                "has_submenu": true,
+                "sub_menu_items": [
+                  {
+                    "name": "ショート",
+                    "price": 3000,
+                    "duration": 60
+                  },
+                  {
+                    "name": "ミディアム",
+                    "price": 3500,
+                    "duration": 70
+                  },
+                  {
+                    "name": "ロング",
+                    "price": 4000,
+                    "duration": 80
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "cat2",
+            "name": "オプション",
+            "menus": [
+              {
+                "id": "option1",
+                "name": "シャンプー",
+                "price": 500,
+                "duration": 15,
+                "description": "基本シャンプー",
+                "target_gender": [
+                  "male",
+                  "female"
+                ]
+              }
+            ]
+          }
+        ],
+        "display_options": {
+          "show_price": true,
+          "show_duration": true,
+          "show_description": true,
+          "show_treatment_info": false
         }
       },
-      "advance_booking_days": 30
+      "calendar_settings": {
+        "business_hours": {
+          "monday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": false
+          },
+          "tuesday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": false
+          },
+          "wednesday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": false
+          },
+          "thursday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": false
+          },
+          "friday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": false
+          },
+          "saturday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": false
+          },
+          "sunday": {
+            "open": "09:00",
+            "close": "18:00",
+            "closed": true
+          }
+        },
+        "advance_booking_days": 30
+      },
+      "ui_settings": {
+        "theme_color": "#3B82F6",
+        "button_style": "rounded",
+        "show_repeat_booking": false,
+        "show_side_nav": true
+      },
+      "validation_rules": {
+        "required_fields": [
+          "name",
+          "phone"
+        ],
+        "phone_format": "japanese",
+        "name_max_length": 50
+      },
+      "gas_endpoint": "https://script.google.com/macros/s/AKfycby3QfS2E892nXbS-fnfBVrJX8KyJWTSsisKpe9zVz5QGWzvTH7Zc3PlOay9j60aSQLp/exec"
     },
-    "status": "inactive",
-    "created_at": "2025-09-26T08:37:01.447Z",
-    "updated_at": "2025-09-26T08:37:01.447Z",
     "static_deploy": {
-      "deployed_at": "2025-09-26T08:39:10.381Z",
-      "deploy_url": "/static-forms/hpnos1kmg0ui.html",
+      "deployed_at": "2025-09-29T05:51:28.807Z",
+      "deploy_url": "/static-forms/55m7vrb9fbjn.html",
       "status": "deployed"
     }
   }

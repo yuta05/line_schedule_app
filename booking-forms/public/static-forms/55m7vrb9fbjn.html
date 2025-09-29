@@ -1,113 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import { join } from 'path';
-
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ formId: string }> }
-) {
-  try {
-    const { formId } = await params;
-    const body = await request.json();
-    const { storeId } = body;
-
-    if (!storeId) {
-      return NextResponse.json(
-        { error: 'Store ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // フォームデータを読み込み
-    const formsPath = join(process.cwd(), 'data', `forms_${storeId}.json`);
-    if (!existsSync(formsPath)) {
-      return NextResponse.json(
-        { error: 'Forms file not found' },
-        { status: 404 }
-      );
-    }
-
-    const formsData = JSON.parse(readFileSync(formsPath, 'utf8'));
-    const form = formsData.find((f: any) => f.id === formId && f.store_id === storeId);
-
-    if (!form) {
-      return NextResponse.json(
-        { error: 'Form not found' },
-        { status: 404 }
-      );
-    }
-
-    // 静的HTMLを生成
-    const staticHtml = generateStaticFormHTML(form);
-    
-    // 静的ファイルを保存
-    const deployDir = join(process.cwd(), 'public', 'static-forms');
-    if (!existsSync(deployDir)) {
-      mkdirSync(deployDir, { recursive: true });
-    }
-
-    const htmlPath = join(deployDir, `${formId}.html`);
-    writeFileSync(htmlPath, staticHtml, 'utf8');
-
-    // デプロイ情報をフォームに記録
-    const updatedForm = {
-      ...form,
-      static_deploy: {
-        deployed_at: new Date().toISOString(),
-        deploy_url: `/static-forms/${formId}.html`,
-        status: 'deployed'
-      }
-    };
-
-    const updatedForms = formsData.map((f: any) => 
-      f.id === formId ? updatedForm : f
-    );
-
-    writeFileSync(formsPath, JSON.stringify(updatedForms, null, 2));
-
-    return NextResponse.json({
-      success: true,
-      deployUrl: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/static-forms/${formId}.html`,
-      deployedAt: updatedForm.static_deploy.deployed_at
-    });
-
-  } catch (error) {
-    console.error('Deploy error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-function generateStaticFormHTML(form: any): string {
-  // メニューHTML生成
-  function generateMenuHTML(menuStructure: any): string {
-    if (!menuStructure?.categories) return '';
-    
-    return menuStructure.categories.map((category: any) => `
-      <div id="category-${category.id}" class="space-y-3">
-        <h3 class="font-semibold text-gray-700">${category.name}</h3>
-        ${(category.menus || []).map((menu: any) => `
-          <div id="menu-${menu.id}" class="checkbox-wrapper">
-            <input type="checkbox" value="${menu.id}" onchange="onMenuChange(this)">
-            <div class="menu-info">
-              <span class="menu-name">${menu.name}</span>
-              <div class="menu-price">${menu.price?.toLocaleString()}円</div>
-              ${menu.description ? `<div class="menu-description">${menu.description}</div>` : ''}
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
-  }
-
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${form.form_name}</title>
+    <title>test</title>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         * {
@@ -499,17 +395,9 @@ function generateStaticFormHTML(form: any): string {
 <body>
     <div class="max-w-2xl mx-auto p-4 space-y-6">
         <div class="bg-white rounded-lg shadow-sm border p-4">
-            <h1 class="text-2xl font-bold text-gray-700 mb-4">${form.form_name}</h1>
+            <h1 class="text-2xl font-bold text-gray-700 mb-4">test</h1>
             
-            ${form.ui_settings?.show_repeat_booking ? `
-            <div class="repeat-booking-section">
-                <h3 class="font-semibold mb-2">前回と同じ内容で予約</h3>
-                <p class="text-sm mb-3 opacity-90">前回の予約内容を復元できます</p>
-                <button class="repeat-btn" onclick="loadPreviousBooking()">
-                    前回と同じメニューで予約する
-                </button>
-            </div>
-            ` : ''}
+            
 
             <form id="bookingForm" class="space-y-6">
                 <div id="alert-container"></div>
@@ -530,7 +418,7 @@ function generateStaticFormHTML(form: any): string {
                                placeholder="090-0000-0000">
                     </div>
 
-                    ${form.basic_info?.show_gender_selection ? `
+                    
                     <div id="genderSection">
                         <label class="block text-sm font-medium text-gray-600 mb-2">性別 *</label>
                         <div class="gender-buttons">
@@ -543,7 +431,7 @@ function generateStaticFormHTML(form: any): string {
                         </div>
                         <input type="hidden" name="gender" id="gender" required>
                     </div>
-                    ` : ''}
+                    
                 </div>
 
                 <!-- メニュー選択 -->
@@ -554,7 +442,35 @@ function generateStaticFormHTML(form: any): string {
                     </h2>
                     
                     <div id="menuContainer" class="space-y-4">
-                        ${generateMenuHTML(form.menu_structure)}
+                        
+      <div id="category-cat1" class="space-y-3">
+        <h3 class="font-semibold text-gray-700">カット</h3>
+        
+          <div id="menu-menu1" class="checkbox-wrapper">
+            <input type="checkbox" value="menu1" onchange="onMenuChange(this)">
+            <div class="menu-info">
+              <span class="menu-name">スタンダードカット</span>
+              <div class="menu-price">3,000円</div>
+              <div class="menu-description">基本的なカット</div>
+            </div>
+          </div>
+        
+      </div>
+    
+      <div id="category-cat2" class="space-y-3">
+        <h3 class="font-semibold text-gray-700">オプション</h3>
+        
+          <div id="menu-option1" class="checkbox-wrapper">
+            <input type="checkbox" value="option1" onchange="onMenuChange(this)">
+            <div class="menu-info">
+              <span class="menu-name">シャンプー</span>
+              <div class="menu-price">500円</div>
+              <div class="menu-description">基本シャンプー</div>
+            </div>
+          </div>
+        
+      </div>
+    
                     </div>
                 </div>
 
@@ -578,7 +494,7 @@ function generateStaticFormHTML(form: any): string {
                         <div class="summary-value" id="summaryPhone"></div>
                     </div>
                     
-                    ${form.basic_info?.show_gender_selection ? `
+                    
                     <div class="summary-section">
                         <div class="summary-label">
                             性別
@@ -586,7 +502,7 @@ function generateStaticFormHTML(form: any): string {
                         </div>
                         <div class="summary-value" id="summaryGender"></div>
                     </div>
-                    ` : ''}
+                    
                     
                     <div class="summary-section">
                         <div class="summary-label">
@@ -618,13 +534,13 @@ function generateStaticFormHTML(form: any): string {
         let selectedGender = '';
         let selectedMenus = [];
         let totalPrice = 0;
-        const menuData = ${JSON.stringify(form.menu_structure)};
-        const formSettings = ${JSON.stringify(form)};
+        const menuData = {"structure_type":"category","categories":[{"id":"cat1","name":"カット","menus":[{"id":"menu1","name":"スタンダードカット","price":3000,"duration":60,"description":"基本的なカット","target_gender":["male","female"],"has_submenu":true,"sub_menu_items":[{"name":"ショート","price":3000,"duration":60},{"name":"ミディアム","price":3500,"duration":70},{"name":"ロング","price":4000,"duration":80}]}]},{"id":"cat2","name":"オプション","menus":[{"id":"option1","name":"シャンプー","price":500,"duration":15,"description":"基本シャンプー","target_gender":["male","female"]}]}]};
+        const formSettings = {"id":"55m7vrb9fbjn","store_id":"st0001","form_name":"test","basic_info":{"form_name":"test","store_name":"","liff_id":"2008098784-5ZQ1LRn3","theme_color":"#3B82F6","show_gender_selection":true},"menu_structure":{"structure_type":"category","categories":[{"id":"cat1","name":"カット","menus":[{"id":"menu1","name":"スタンダードカット","price":3000,"duration":60,"description":"基本的なカット","target_gender":["male","female"],"has_submenu":true,"sub_menu_items":[{"name":"ショート","price":3000,"duration":60},{"name":"ミディアム","price":3500,"duration":70},{"name":"ロング","price":4000,"duration":80}]}]},{"id":"cat2","name":"オプション","menus":[{"id":"option1","name":"シャンプー","price":500,"duration":15,"description":"基本シャンプー","target_gender":["male","female"]}]}]},"ui_settings":{"theme_color":"#a83bb0","button_style":"rounded","show_repeat_booking":false,"show_side_nav":true,"show_visit_count":true,"show_coupon_selection":true},"gas_endpoint":"https://script.google.com/macros/s/AKfycby3QfS2E892nXbS-fnfBVrJX8KyJWTSsisKpe9zVz5QGWzvTH7Zc3PlOay9j60aSQLp/exec","line_settings":{"liff_id":"2008098784-5ZQ1LRn3"},"business_rules":{"business_hours":{"monday":{"open":"09:00","close":"18:00","closed":false},"tuesday":{"open":"09:00","close":"18:00","closed":false},"wednesday":{"open":"09:00","close":"18:00","closed":false},"thursday":{"open":"09:00","close":"18:00","closed":false},"friday":{"open":"09:00","close":"18:00","closed":false},"saturday":{"open":"09:00","close":"18:00","closed":false},"sunday":{"open":"09:00","close":"18:00","closed":true}},"advance_booking_days":30},"status":"active","created_at":"2025-09-29T04:45:08.304Z","updated_at":"2025-09-29T04:53:40.960Z","draft_status":"draft","config":{"basic_info":{"form_name":"test","store_name":"","liff_id":"2008098784-5ZQ1LRn3","theme_color":"#3B82F6"},"visit_options":[],"gender_selection":{"enabled":true,"required":false,"options":[{"value":"male","label":"男性"},{"value":"female","label":"女性"}]},"visit_count_selection":{"enabled":true,"required":false,"options":[{"value":"first","label":"初回"},{"value":"repeat","label":"2回目以降"}]},"coupon_selection":{"enabled":true,"coupon_name":"","options":[{"value":"use","label":"利用する"},{"value":"not_use","label":"利用しない"}]},"menu_structure":{"structure_type":"category_based","categories":[{"id":"cat1","name":"カット","menus":[{"id":"menu1","name":"スタンダードカット","price":3000,"duration":60,"description":"基本的なカット","target_gender":["male","female"],"has_submenu":true,"sub_menu_items":[{"name":"ショート","price":3000,"duration":60},{"name":"ミディアム","price":3500,"duration":70},{"name":"ロング","price":4000,"duration":80}]}]},{"id":"cat2","name":"オプション","menus":[{"id":"option1","name":"シャンプー","price":500,"duration":15,"description":"基本シャンプー","target_gender":["male","female"]}]}],"display_options":{"show_price":true,"show_duration":true,"show_description":true,"show_treatment_info":false}},"calendar_settings":{"business_hours":{"monday":{"open":"09:00","close":"18:00","closed":false},"tuesday":{"open":"09:00","close":"18:00","closed":false},"wednesday":{"open":"09:00","close":"18:00","closed":false},"thursday":{"open":"09:00","close":"18:00","closed":false},"friday":{"open":"09:00","close":"18:00","closed":false},"saturday":{"open":"09:00","close":"18:00","closed":false},"sunday":{"open":"09:00","close":"18:00","closed":true}},"advance_booking_days":30},"ui_settings":{"theme_color":"#3B82F6","button_style":"rounded","show_repeat_booking":false,"show_side_nav":true},"validation_rules":{"required_fields":["name","phone"],"phone_format":"japanese","name_max_length":50},"gas_endpoint":"https://script.google.com/macros/s/AKfycby3QfS2E892nXbS-fnfBVrJX8KyJWTSsisKpe9zVz5QGWzvTH7Zc3PlOay9j60aSQLp/exec"},"static_deploy":{"deployed_at":"2025-09-29T05:36:49.585Z","deploy_url":"/static-forms/55m7vrb9fbjn.html","status":"deployed"}};
 
         // LIFF初期化
         async function initializeLiff() {
             try {
-                await liff.init({ liffId: '${form.line_settings?.liff_id || ''}' });
+                await liff.init({ liffId: '2008098784-5ZQ1LRn3' });
                 console.log('LIFF initialized successfully');
             } catch (error) {
                 console.error('LIFF initialization failed:', error);
@@ -652,7 +568,7 @@ function generateStaticFormHTML(form: any): string {
             document.querySelectorAll('.gender-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
-            document.querySelector(\`[data-gender="\${gender}"]\`).classList.add('active');
+            document.querySelector(`[data-gender="${gender}"]`).classList.add('active');
             
             updateMenuDisplay();
             saveFormData();
@@ -664,14 +580,14 @@ function generateStaticFormHTML(form: any): string {
             const categories = menuData?.categories || [];
             
             categories.forEach(category => {
-                const categoryElement = document.getElementById(\`category-\${category.id}\`);
+                const categoryElement = document.getElementById(`category-${category.id}`);
                 if (!categoryElement) return;
 
                 if (showGender && selectedGender) {
                     // 性別が選択されている場合、対応するメニューのみ表示
                     const menus = category.menus || [];
                     menus.forEach(menu => {
-                        const menuElement = document.getElementById(\`menu-\${menu.id}\`);
+                        const menuElement = document.getElementById(`menu-${menu.id}`);
                         if (menuElement) {
                             const targetGenders = menu.target_gender || ['male', 'female'];
                             if (targetGenders.includes(selectedGender)) {
@@ -691,7 +607,7 @@ function generateStaticFormHTML(form: any): string {
                     // 性別選択がない場合は全て表示
                     const menus = category.menus || [];
                     menus.forEach(menu => {
-                        const menuElement = document.getElementById(\`menu-\${menu.id}\`);
+                        const menuElement = document.getElementById(`menu-${menu.id}`);
                         if (menuElement) {
                             menuElement.style.display = 'block';
                         }
@@ -767,10 +683,10 @@ function generateStaticFormHTML(form: any): string {
             }
             
             const menuList = selectedMenus.map(menu => 
-                \`\${menu.name} - \${menu.price?.toLocaleString()}円\`
+                `${menu.name} - ${menu.price?.toLocaleString()}円`
             ).join('<br>');
             document.getElementById('summaryMenus').innerHTML = menuList;
-            document.getElementById('summaryTotal').textContent = \`\${totalPrice.toLocaleString()}円\`;
+            document.getElementById('summaryTotal').textContent = `${totalPrice.toLocaleString()}円`;
 
             // 表示切り替え
             document.getElementById('bookingSummary').classList.remove('hidden');
@@ -809,12 +725,12 @@ function generateStaticFormHTML(form: any): string {
                 totalPrice: totalPrice,
                 timestamp: new Date().toISOString()
             };
-            localStorage.setItem('bookingFormData_${form.id}', JSON.stringify(formData));
+            localStorage.setItem('bookingFormData_55m7vrb9fbjn', JSON.stringify(formData));
         }
 
         // フォームデータ読み込み
         function loadFormData() {
-            const savedData = localStorage.getItem('bookingFormData_${form.id}');
+            const savedData = localStorage.getItem('bookingFormData_55m7vrb9fbjn');
             if (savedData) {
                 try {
                     const data = JSON.parse(savedData);
@@ -828,7 +744,7 @@ function generateStaticFormHTML(form: any): string {
                     if (data.selectedMenus) {
                         selectedMenus = data.selectedMenus;
                         selectedMenus.forEach(menu => {
-                            const checkbox = document.querySelector(\`input[value="\${menu.id}"]\`);
+                            const checkbox = document.querySelector(`input[value="${menu.id}"]`);
                             if (checkbox) {
                                 checkbox.checked = true;
                                 checkbox.closest('.checkbox-wrapper').classList.add('selected');
@@ -844,7 +760,7 @@ function generateStaticFormHTML(form: any): string {
 
         // 前回の予約を読み込み
         function loadPreviousBooking() {
-            const savedData = localStorage.getItem('bookingFormData_${form.id}');
+            const savedData = localStorage.getItem('bookingFormData_55m7vrb9fbjn');
             if (savedData) {
                 loadFormData();
                 showAlert('前回の予約内容を復元しました。', 'success');
@@ -858,11 +774,11 @@ function generateStaticFormHTML(form: any): string {
             const alertContainer = document.getElementById('alert-container');
             const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
             
-            alertContainer.innerHTML = \`
-                <div class="alert \${alertClass}">
-                    \${message}
+            alertContainer.innerHTML = `
+                <div class="alert ${alertClass}">
+                    ${message}
                 </div>
-            \`;
+            `;
             
             setTimeout(() => {
                 alertContainer.innerHTML = '';
@@ -880,13 +796,13 @@ function generateStaticFormHTML(form: any): string {
                     gender: selectedGender,
                     selectedMenus: selectedMenus,
                     totalPrice: totalPrice,
-                    formId: '${form.id}',
+                    formId: '55m7vrb9fbjn',
                     timestamp: new Date().toISOString()
                 };
 
                 // LIFFでLINEにメッセージ送信
                 if (liff.isInClient()) {
-                    const message = \`予約が完了しました！\\n\\nお名前: \${formData.name}\\n電話番号: \${formData.phone}\${selectedGender ? \`\\n性別: \${selectedGender === 'male' ? '男性' : '女性'}\` : ''}\\n選択メニュー: \${selectedMenus.map(m => m.name).join(', ')}\\n合計金額: \${totalPrice.toLocaleString()}円\`;
+                    const message = `予約が完了しました！\n\nお名前: ${formData.name}\n電話番号: ${formData.phone}${selectedGender ? `\n性別: ${selectedGender === 'male' ? '男性' : '女性'}` : ''}\n選択メニュー: ${selectedMenus.map(m => m.name).join(', ')}\n合計金額: ${totalPrice.toLocaleString()}円`;
                     
                     await liff.sendMessages([{
                         type: 'text',
@@ -910,7 +826,7 @@ function generateStaticFormHTML(form: any): string {
                     document.querySelectorAll('.gender-btn').forEach(btn => {
                         btn.classList.remove('active');
                     });
-                    localStorage.removeItem('bookingFormData_${form.id}');
+                    localStorage.removeItem('bookingFormData_55m7vrb9fbjn');
                 }, 2000);
 
             } catch (error) {
@@ -920,5 +836,4 @@ function generateStaticFormHTML(form: any): string {
         });
     </script>
 </body>
-</html>`;
-}
+</html>

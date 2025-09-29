@@ -5,12 +5,12 @@ import { join } from 'path';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { formId: string } }
+  { params }: { params: Promise<{ formId: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get('storeId');
-    const formId = params.formId;
+    const { formId } = await params;
     
     if (!storeId || !formId) {
       return NextResponse.json(

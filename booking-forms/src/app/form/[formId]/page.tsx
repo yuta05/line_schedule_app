@@ -804,9 +804,9 @@ export default function CustomerFormPage() {
                 性別 {form.config.gender_selection.required && <span className="text-red-500">*</span>}
               </label>
               <div className="flex space-x-4">
-                {form.config.gender_selection.options.map((option) => (
+                {form.config.gender_selection.options.map((option, optionIndex) => (
                   <button
-                    key={option.value}
+                    key={option.value || `gender-${optionIndex}`}
                     type="button"
                     onClick={() => setFormData(prev => {
                       const newFormData = { ...prev, gender: option.value };
@@ -833,9 +833,9 @@ export default function CustomerFormPage() {
                 ご来店回数 {form.config.visit_count_selection.required && <span className="text-red-500">*</span>}
               </label>
               <div className="flex space-x-4">
-                {form.config.visit_count_selection.options.map((option) => (
+                {form.config.visit_count_selection.options.map((option, optionIndex) => (
                   <button
-                    key={option.value}
+                    key={option.value || `visit-${optionIndex}`}
                     type="button"
                     onClick={() => setFormData(prev => {
                       const newFormData = { ...prev, visitCount: option.value };
@@ -865,9 +865,9 @@ export default function CustomerFormPage() {
                 }
               </label>
               <div className="flex space-x-4">
-                {form.config.coupon_selection.options.map((option) => (
+                {form.config.coupon_selection.options.map((option, optionIndex) => (
                   <button
-                    key={option.value}
+                    key={option.value || `coupon-${optionIndex}`}
                     type="button"
                     onClick={() => setFormData(prev => {
                       const newFormData = { ...prev, couponUsage: option.value };
@@ -894,8 +894,8 @@ export default function CustomerFormPage() {
                 メニューをお選びください
               </label>
               <div className="space-y-4">
-                {form.config.menu_structure.categories.map((category) => (
-                  <div key={category.id} className="border border-gray-200 rounded-lg p-4">
+                {form.config.menu_structure.categories.map((category, categoryIndex) => (
+                  <div key={category.id || categoryIndex} className="border border-gray-200 rounded-lg p-4">
                     <div className="space-y-2">
                       {category.menus
                         .filter((menu) => {
@@ -914,8 +914,8 @@ export default function CustomerFormPage() {
                                  menu.gender_filter === formData.gender ||
                                  !menu.gender_filter;
                         })
-                        .map((menu) => (
-                        <div key={menu.id} className="space-y-3">
+                        .map((menu, menuIndex) => (
+                        <div key={`${category.id}-${menu.id || menuIndex}`} className="space-y-3">
                           {/* メニューがサブメニューを持つ場合 */}
                           {menu.has_submenu && menu.sub_menu_items && menu.sub_menu_items.length > 0 ? (
                             <div>
@@ -955,9 +955,9 @@ export default function CustomerFormPage() {
                               {expandedMenus.has(menu.id) && (
                                 <div className="ml-6 mt-3 space-y-2 border-l-2 border-blue-200 pl-4">
                                   <div className="text-sm font-medium text-gray-700 mb-3">サブメニューを選択してください</div>
-                                  {menu.sub_menu_items.map((subMenu) => (
+                                  {menu.sub_menu_items.map((subMenu, subIndex) => (
                                     <button
-                                      key={subMenu.id}
+                                      key={`${menu.id}-${subMenu.id || subIndex}`}
                                       type="button"
                                       onClick={() => handleSubMenuSelection(menu.id, subMenu.id)}
                                       className={`w-full flex items-center justify-between p-3 border-2 rounded-md font-medium transition-all duration-200 ${
@@ -1018,9 +1018,9 @@ export default function CustomerFormPage() {
                            formData.selectedMenus[category.id]?.includes(menu.id) && (
                             <div className="ml-6 pl-4 border-l-2 border-green-200 space-y-2">
                               <div className="text-sm font-medium text-gray-700 mb-3">オプション</div>
-                              {menu.options.map((option) => (
+                              {menu.options.map((option, optionIndex) => (
                                 <button
-                                  key={option.id}
+                                  key={`${menu.id}-${option.id || optionIndex}`}
                                   type="button"
                                   onClick={() => handleMenuOptionSelection(menu.id, option.id, !formData.selectedMenuOptions[menu.id]?.includes(option.id))}
                                   className={`w-full flex items-center justify-between p-2 border-2 rounded-md text-sm font-medium transition-all duration-200 ${
